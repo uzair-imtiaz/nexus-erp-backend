@@ -14,18 +14,37 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, any> {
     const handler = context.getHandler();
     const metadata = Reflect.getMetadata(RESPONSE_METADATA_KEY, handler);
 
-    const success = metadata?.success;
-    const message = metadata?.message;
+    const success = metadata?.success ?? true;
+    const message = metadata?.message ?? 'Success';
 
     return next.handle().pipe(
-      map((data) => ({
-        success,
-        message,
-        data,
-      })),
+      map((responseData: any) => {
+        if (
+          responseData &&
+          typeof responseData === 'object' &&
+          'data' in responseData &&
+          'pagination' in responseData
+        ) {
+          // For paginated responses
+          return {
+            success,
+            message,
+            data: responseData.data,
+            pagination: responseData.pagination,
+          };
+        }
+
+        // For normal responses
+        return {
+          success,
+          message,
+          data: responseData,
+        };
+      }),
       catchError((error) => {
         const errorMessage =
           error?.response?.message ?? error.message ?? 'Something went wrong';
+
         return new Observable((observer) => {
           observer.next({
             success: false,

@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Account } from '../subcategories/entity/account-base.entity';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { Inventory } from './entity/inventory.entity';
+import { paginate, Paginated } from 'src/common/utils/paginate';
 
 @Injectable()
 export class InventoryService {
@@ -19,19 +20,9 @@ export class InventoryService {
     inventory.name = createInventoryDto.name;
     inventory.quantity = createInventoryDto.quantity;
     inventory.baseRate = createInventoryDto.baseRate;
-
-    // Handle account relationships
-    if (createInventoryDto.accountGroup) {
-      const accountGroup = await this.accountRepository.findOne({
-        where: { id: createInventoryDto.accountGroup },
-      });
-      if (!accountGroup) {
-        throw new NotFoundException(
-          `Account Group with ID ${createInventoryDto.accountGroup} not found`,
-        );
-      }
-      inventory.accountGroup = accountGroup;
-    }
+    inventory.accountGroup = createInventoryDto.accountGroup;
+    inventory.category = createInventoryDto.category;
+    inventory.baseUnit = createInventoryDto.baseUnit;
 
     if (createInventoryDto.accountLevel1) {
       const accountLevel1 = await this.accountRepository.findOne({
@@ -57,25 +48,35 @@ export class InventoryService {
       inventory.accountLevel2 = accountLevel2;
     }
 
-    if (createInventoryDto.accountLevel3) {
-      const accountLevel3 = await this.accountRepository.findOne({
-        where: { id: createInventoryDto.accountLevel3 },
-      });
-      if (!accountLevel3) {
-        throw new NotFoundException(
-          `Account Level 3 with ID ${createInventoryDto.accountLevel3} not found`,
-        );
-      }
-      inventory.accountLevel3 = accountLevel3;
-    }
-    // Save and return the new inventory
+    const latest = await this.inventoryRepository
+      .createQueryBuilder('inventory')
+      .orderBy('inventory.id', 'DESC')
+      .getOne();
+
+    const nextId = latest ? parseInt(latest.id.replace('ITEM-', '')) + 1 : 1;
+    const id = `ITEM-${nextId.toString().padStart(5, '0')}`;
+    inventory.id = id;
+
     return await this.inventoryRepository.save(inventory);
   }
 
-  async findAll(): Promise<Inventory[]> {
-    return this.inventoryRepository.find({
-      relations: ['accountGroup', 'accountLevel1', 'accountLevel2', 'accountLevel3'],
+  async findAll(filters: Record<string, any>): Promise<Paginated<Inventory>> {
+    const queryBuilder = this.inventoryRepository
+      .createQueryBuilder('inventory')
+      .leftJoinAndSelect('inventory.accountLevel1', 'accountLevel1')
+      .leftJoinAndSelect('inventory.accountLevel2', 'accountLevel2');
+
+    const { page, limit, ...filterFields } = filters;
+    const ALLOWED_FILTERS = ['name', 'category'];
+    Object.entries(filterFields).forEach(([key, value]) => {
+      if (value && ALLOWED_FILTERS.includes(key)) {
+        queryBuilder.andWhere(`inventory.${key} ILIKE :${key}`, {
+          [key]: `%${value}%`,
+        });
+      }
     });
+
+    return paginate(queryBuilder, page, limit);
   }
 
   async findOne(id: string): Promise<Inventory> {

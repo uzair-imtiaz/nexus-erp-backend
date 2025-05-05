@@ -1,5 +1,11 @@
 import { Type } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsPositive, IsString, IsUUID } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsPositive,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 export class CreateInventoryDto {
   @IsNotEmpty()
@@ -17,15 +23,21 @@ export class CreateInventoryDto {
   @Type(() => Number)
   baseRate: number;
 
-  @IsUUID()
+  @IsNotEmpty()
+  @IsString()
   accountGroup: string;
+
+  @IsNotEmpty()
+  @IsString()
+  category: string;
+
+  @IsString()
+  @IsNotEmpty()
+  baseUnit: string;
 
   @IsUUID()
   accountLevel1: string;
 
   @IsUUID()
   accountLevel2: string;
-
-  @IsUUID()
-  accountLevel3: string;
 }

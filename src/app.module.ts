@@ -7,6 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { InventoryModule } from './inventory/inventory.module';
 import { SubcategoriesModule } from './subcategories/subcategories.module';
+import { BankModule } from './bank/bank.module';
 import dbConfig from './config/db.config';
 
 @Module({
@@ -22,6 +23,7 @@ import dbConfig from './config/db.config';
     UsersModule,
     InventoryModule,
     SubcategoriesModule,
+    BankModule,
   ],
   controllers: [AppController],
   providers: [AppService],
