@@ -8,6 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { InventoryModule } from './inventory/inventory.module';
 import { SubcategoriesModule } from './subcategories/subcategories.module';
 import { BankModule } from './bank/bank.module';
+import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
 import dbConfig from './config/db.config';
 
 @Module({
@@ -24,6 +25,7 @@ import dbConfig from './config/db.config';
     InventoryModule,
     SubcategoriesModule,
     BankModule,
+    RefreshTokensModule,
   ],
   controllers: [AppController],
   providers: [AppService],
