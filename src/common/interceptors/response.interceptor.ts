@@ -41,17 +41,17 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, any> {
           data: responseData,
         };
       }),
-      catchError((error) => {
-        const errorMessage =
-          error?.response?.message ?? error.message ?? 'Something went wrong';
+      // catchError((error) => {
+      //   const errorMessage =
+      //     error?.response?.message ?? error.message ?? 'Something went wrong';
 
-        return new Observable((observer) => {
-          observer.next({
-            success: false,
-            message: errorMessage,
-          });
-        });
-      }),
+      //   return new Observable((observer) => {
+      //     observer.next({
+      //       success: false,
+      //       message: errorMessage,
+      //     });
+      //   });
+      // }),
     );
   }
 }

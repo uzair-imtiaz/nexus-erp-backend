@@ -1,4 +1,5 @@
 import { Account } from 'src/subcategories/entity/account-base.entity';
+import { Tenant } from 'src/tenant/entity/tenant.entity';
 import {
   Column,
   CreateDateColumn,
@@ -48,6 +49,9 @@ export class Inventory {
   @ManyToOne(() => Account)
   @JoinColumn({ name: 'account_level_2_id' })
   accountLevel2: Account;
+
+  @ManyToOne(() => Tenant)
+  tenant: Tenant;
 
   @CreateDateColumn({ name: 'created_at', select: false })
   createdAt: Date;

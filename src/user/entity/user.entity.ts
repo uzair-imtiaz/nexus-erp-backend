@@ -7,12 +7,10 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Role } from '../interfaces/role.enum';
+import { BaseEntity } from 'src/common/entities/base.entity';
 
 @Entity()
-export class User {
-  @PrimaryGeneratedColumn()
-  id: string;
-
+export class User extends BaseEntity {
   @Column({ name: 'first_name' })
   firstName: string;
 

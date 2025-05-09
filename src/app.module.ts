@@ -9,7 +9,10 @@ import { InventoryModule } from './inventory/inventory.module';
 import { SubcategoriesModule } from './subcategories/subcategories.module';
 import { BankModule } from './bank/bank.module';
 import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
+import { TenantModule } from './tenant/tenant.module';
 import dbConfig from './config/db.config';
+import { APP_GUARD } from '@nestjs/core';
+import { TenantGuard } from './tenant/guards/tenant.guard';
 
 @Module({
   imports: [
@@ -20,6 +23,7 @@ import dbConfig from './config/db.config';
         ...configService.get('database'),
       }),
     }),
+    TenantModule,
     AuthModule,
     UsersModule,
     InventoryModule,
@@ -28,6 +32,12 @@ import dbConfig from './config/db.config';
     RefreshTokensModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: TenantGuard,
+    },
+  ],
 })
 export class AppModule {}

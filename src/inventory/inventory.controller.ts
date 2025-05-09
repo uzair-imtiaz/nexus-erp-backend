@@ -1,11 +1,20 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
-import { UuidValidationPipe } from 'src/common/pipes/UuidValidationPipe';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { Inventory } from './entity/inventory.entity';
 import { InventoryService } from './inventory.service';
 import { InventoryFilterDto } from './dto/inventory-filter.dto';
+import { TenantGuard } from 'src/tenant/guards/tenant.guard';
 
+@UseGuards(TenantGuard)
 @Controller('inventory')
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
@@ -41,9 +50,7 @@ export class InventoryController {
     success: true,
     message: 'Inventory fetched successfully',
   })
-  async findOne(
-    @Param('id', UuidValidationPipe) id: string,
-  ): Promise<Inventory> {
+  async findOne(@Param('id') id: string): Promise<Inventory> {
     return await this.inventoryService.findOne(id);
   }
 }

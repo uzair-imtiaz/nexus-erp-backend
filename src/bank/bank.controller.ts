@@ -6,11 +6,14 @@ import {
   Param,
   Post,
   Put,
+  UseGuards,
 } from '@nestjs/common';
 import { BankService } from './bank.service';
 import { CreateBankDto } from './dto/create-bank.dto';
 import { UpdateBankDto } from './dto/update-bank.dto';
+import { AuthGuard } from '@nestjs/passport';
 
+@UseGuards(AuthGuard)
 @Controller('banks')
 export class BankController {
   constructor(private readonly bankService: BankService) {}

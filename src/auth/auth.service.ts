@@ -1,19 +1,19 @@
 import {
-  Injectable,
-  UnauthorizedException,
-  InternalServerErrorException,
   ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcryptjs';
+import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
+import { User } from 'src/user/entity/user.entity';
+import { UsersService } from 'src/user/user.service';
 import { v4 as uuidv4 } from 'uuid';
 import {
   JwtAccessPayload,
   JwtRefreshPayload,
 } from './interfaces/jwt-payload.interface';
-import { User } from 'src/user/entity/user.entity';
-import { UsersService } from 'src/user/user.service';
-import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 
 @Injectable()
 export class AuthService {
@@ -55,6 +55,7 @@ export class AuthService {
         email: decoded.email,
         role: decoded.role,
         jti: decoded.jti,
+        tenantId: decoded.tenantId,
       };
     } catch (e) {
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -96,6 +97,7 @@ export class AuthService {
         sub: user.id,
         jti,
         role: user.role,
+        tenantId: user.tenant.id,
       };
       const accessToken = this.generateAccessToken(payload);
       const refreshToken = await this.refreshTokensService.create(
@@ -131,6 +133,7 @@ export class AuthService {
         sub: payload.sub,
         email: payload.email,
         role: payload.role,
+        tenantId: payload.tenantId,
       });
       return {
         accessToken: newAccessToken,

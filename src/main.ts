@@ -5,6 +5,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import * as CookieParser from 'cookie-parser';
 import * as session from 'express-session';
+import { TenantGuard } from './tenant/guards/tenant.guard';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -45,6 +46,16 @@ async function bootstrap() {
   );
   app.setGlobalPrefix('api');
   app.useGlobalInterceptors(new ResponseInterceptor());
+  const tenantGuard = app.get(TenantGuard);
+  app.useGlobalGuards(tenantGuard);
+
+  process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err);
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  });
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

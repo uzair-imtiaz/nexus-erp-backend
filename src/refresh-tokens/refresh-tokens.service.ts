@@ -7,18 +7,20 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/user/entity/user.entity';
 import { MoreThan, Repository, UpdateResult } from 'typeorm';
-import { RefreshToken } from './entities/refresh-token.entity';
+import { RefreshToken } from './entity/refresh-token.entity';
 import { JwtRefreshPayload } from 'src/auth/interfaces/jwt-payload.interface';
 import * as bcrypt from 'bcryptjs';
 import { Cron } from '@nestjs/schedule';
+import { TenantContextService } from 'src/tenant/tenant-context.service';
 
 @Injectable()
 export class RefreshTokensService {
   constructor(
     @InjectRepository(RefreshToken)
     private refreshTokenRepository: Repository<RefreshToken>,
-    private jwtService: JwtService,
     @InjectRepository(User) private userRepository: Repository<User>,
+    private readonly jwtService: JwtService,
+    private readonly tenantService: TenantContextService,
   ) {}
 
   async create(
@@ -50,11 +52,13 @@ export class RefreshTokensService {
         const errorMessage = `User with ID ${userId} not found.`;
         throw new NotFoundException(errorMessage);
       }
+      const tenantId = this.tenantService.getTenantId();
       const refreshToken = this.refreshTokenRepository.create({
         user,
         jti,
         token: hashedToken,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        tenant: { id: tenantId },
       });
       await this.refreshTokenRepository.save(refreshToken);
       return token;
@@ -64,8 +68,9 @@ export class RefreshTokensService {
   }
 
   async findOne(jti: string): Promise<RefreshToken> {
+    const tenantId = this.tenantService.getTenantId();
     const refreshToken = await this.refreshTokenRepository.findOne({
-      where: { jti },
+      where: { jti, tenant: { id: tenantId } },
     });
     if (!refreshToken) {
       const errorMessage = `Refresh token with ID ${jti} not found.`;
@@ -75,8 +80,9 @@ export class RefreshTokensService {
   }
 
   async revoke(jti: string) {
+    const tenantId = this.tenantService.getTenantId();
     const updated = await this.refreshTokenRepository.update(
-      { jti },
+      { jti, tenant: { id: tenantId } },
       { isRevoked: true },
     );
     if (!updated) {
@@ -87,16 +93,19 @@ export class RefreshTokensService {
   }
 
   async revokeAll(userId: string) {
+    const tenantId = this.tenantService.getTenantId();
     const updated = await this.refreshTokenRepository.update(
-      { user: { id: userId } },
+      { user: { id: userId }, tenant: { id: tenantId } },
       { isRevoked: true },
     );
     return updated;
   }
 
   async deleteExpiredTokens() {
+    const tenantId = this.tenantService.getTenantId();
     const deleted = await this.refreshTokenRepository.delete({
       expiresAt: MoreThan(new Date()),
+      tenant: { id: tenantId },
     });
     return deleted;
   }

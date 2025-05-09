@@ -14,7 +14,9 @@ import { LocalAuthGuard } from './guards/local-auth.guard';
 import { LoginExpressRequest } from './interfaces/login-express.interface';
 import { Response } from 'express';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { TenantGuard } from 'src/tenant/guards/tenant.guard';
 
+@UseGuards(TenantGuard)
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

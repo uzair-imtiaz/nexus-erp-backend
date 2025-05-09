@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { Account } from './entity/account-base.entity';
 import { SubcategoriesService } from './subcategories.service';
+import { TenantGuard } from 'src/tenant/guards/tenant.guard';
 
+@UseGuards(TenantGuard)
 @Controller('accounts')
 export class SubcategoriesController {
   constructor(private readonly subcategoriesService: SubcategoriesService) {}

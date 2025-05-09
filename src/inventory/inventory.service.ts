@@ -5,6 +5,7 @@ import { Account } from '../subcategories/entity/account-base.entity';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { Inventory } from './entity/inventory.entity';
 import { paginate, Paginated } from 'src/common/utils/paginate';
+import { TenantContextService } from 'src/tenant/tenant-context.service';
 
 @Injectable()
 export class InventoryService {
@@ -13,6 +14,7 @@ export class InventoryService {
     private inventoryRepository: Repository<Inventory>,
     @InjectRepository(Account)
     private accountRepository: Repository<Account>,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   async create(createInventoryDto: CreateInventoryDto): Promise<Inventory> {
@@ -48,8 +50,10 @@ export class InventoryService {
       inventory.accountLevel2 = accountLevel2;
     }
 
+    const tenantId = this.tenantContext.getTenantId();
     const latest = await this.inventoryRepository
       .createQueryBuilder('inventory')
+      .where('inventory.tenant = :tenantId', { tenantId })
       .orderBy('inventory.id', 'DESC')
       .getOne();
 
@@ -61,6 +65,7 @@ export class InventoryService {
   }
 
   async findAll(filters: Record<string, any>): Promise<Paginated<Inventory>> {
+    const tenantId = this.tenantContext.getTenantId();
     const queryBuilder = this.inventoryRepository
       .createQueryBuilder('inventory')
       .leftJoinAndSelect('inventory.accountLevel1', 'accountLevel1')
@@ -80,8 +85,9 @@ export class InventoryService {
   }
 
   async findOne(id: string): Promise<Inventory> {
+    const tenantId = this.tenantContext.getTenantId();
     const inventory = await this.inventoryRepository.findOne({
-      where: { id },
+      where: { id, tenant: { id: tenantId } },
     });
 
     if (!inventory) {

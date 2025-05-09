@@ -4,6 +4,7 @@ export interface JwtAccessPayload {
   email: string;
   sub: string;
   role: Role;
+  tenantId: string;
 }
 
 export interface JwtRefreshPayload {
@@ -11,4 +12,5 @@ export interface JwtRefreshPayload {
   sub: string;
   jti: string;
   role: Role;
+  tenantId: string;
 }
