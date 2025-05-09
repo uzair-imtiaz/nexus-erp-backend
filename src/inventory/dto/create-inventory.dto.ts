@@ -35,9 +35,11 @@ export class CreateInventoryDto {
   @IsNotEmpty()
   baseUnit: string;
 
-  @IsUUID()
+  @IsString()
+  @IsNotEmpty()
   accountLevel1: string;
 
-  @IsUUID()
+  @IsString()
+  @IsNotEmpty()
   accountLevel2: string;
 }

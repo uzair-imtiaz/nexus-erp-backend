@@ -1,10 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Account } from '../subcategories/entity/account-base.entity';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { Inventory } from './entity/inventory.entity';
 import { paginate, Paginated } from 'src/common/utils/paginate';
+import { TenantContextService } from 'src/tenant/tenant-context.service';
 
 @Injectable()
 export class InventoryService {
@@ -13,9 +18,11 @@ export class InventoryService {
     private inventoryRepository: Repository<Inventory>,
     @InjectRepository(Account)
     private accountRepository: Repository<Account>,
+    private readonly tenantContextService: TenantContextService,
   ) {}
 
   async create(createInventoryDto: CreateInventoryDto): Promise<Inventory> {
+    const tenantId = this.tenantContextService.getTenantId();
     const inventory = new Inventory();
     inventory.name = createInventoryDto.name;
     inventory.quantity = createInventoryDto.quantity;
@@ -50,6 +57,7 @@ export class InventoryService {
 
     const latest = await this.inventoryRepository
       .createQueryBuilder('inventory')
+      .where('inventory.tenant = :tenantId', { tenantId })
       .orderBy('inventory.id', 'DESC')
       .getOne();
 
@@ -61,13 +69,20 @@ export class InventoryService {
   }
 
   async findAll(filters: Record<string, any>): Promise<Paginated<Inventory>> {
+    const tenantId = this.tenantContextService.getTenantId();
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID not found in request headers');
+    }
+
     const queryBuilder = this.inventoryRepository
       .createQueryBuilder('inventory')
       .leftJoinAndSelect('inventory.accountLevel1', 'accountLevel1')
-      .leftJoinAndSelect('inventory.accountLevel2', 'accountLevel2');
+      .leftJoinAndSelect('inventory.accountLevel2', 'accountLevel2')
+      .where('inventory.tenant.id = :tenantId', { tenantId });
 
     const { page, limit, ...filterFields } = filters;
     const ALLOWED_FILTERS = ['name', 'category'];
+
     Object.entries(filterFields).forEach(([key, value]) => {
       if (value && ALLOWED_FILTERS.includes(key)) {
         queryBuilder.andWhere(`inventory.${key} ILIKE :${key}`, {
@@ -80,8 +95,9 @@ export class InventoryService {
   }
 
   async findOne(id: string): Promise<Inventory> {
+    const tenantId = this.tenantContextService.getTenantId();
     const inventory = await this.inventoryRepository.findOne({
-      where: { id },
+      where: { id, tenant: { id: tenantId } },
     });
 
     if (!inventory) {
