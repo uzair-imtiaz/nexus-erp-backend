@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateAccountDto {
   @IsString()
@@ -10,6 +10,6 @@ export class CreateAccountDto {
   type: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   parentAccount?: string;
 }
