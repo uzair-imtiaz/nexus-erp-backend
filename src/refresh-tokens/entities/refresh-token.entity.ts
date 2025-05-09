@@ -1,3 +1,4 @@
+import { BaseEntity } from 'src/common/entities/base.entity';
 import { User } from 'src/user/entity/user.entity';
 import {
   Column,
@@ -5,15 +6,11 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
-  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity()
-export class RefreshToken {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
+export class RefreshToken extends BaseEntity {
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
   user: User;

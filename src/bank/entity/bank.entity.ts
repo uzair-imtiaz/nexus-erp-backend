@@ -1,16 +1,8 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { BaseEntity } from 'src/common/entities/base.entity';
+import { Column, CreateDateColumn, Entity, UpdateDateColumn } from 'typeorm';
 
 @Entity()
-export class Bank {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
+export class Bank extends BaseEntity {
   @Column()
   bankCode: string;
 
