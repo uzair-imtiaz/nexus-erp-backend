@@ -9,11 +9,15 @@ import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcryptjs';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { TenantService } from 'src/tenant/tenant.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User) private userRepository: Repository<User>,
+    private readonly tenantContextService: TenantContextService,
+    private readonly tenantService: TenantService,
   ) {}
 
   async create(user: CreateUserDto): Promise<Omit<User, 'password'>> {
@@ -26,15 +30,20 @@ export class UsersService {
     }
     const salt = await bcrypt.genSalt();
     user.password = await bcrypt.hash(user.password, salt);
+    const tenant = await this.tenantService.create({
+      name: user.tenantName,
+    });
     const _user = this.userRepository.create(user);
+    _user.tenant = tenant;
     await this.userRepository.insert(_user);
     const { password, ...result } = _user;
     return result;
   }
 
   async findOneById(id: string) {
+    const tenantId = this.tenantContextService.getTenantId();
     const user = await this.userRepository.findOne({
-      where: { id },
+      where: { id, tenant: { id: tenantId } },
     });
     console.log('user', user);
     if (!user) {
@@ -45,8 +54,9 @@ export class UsersService {
   }
 
   async findOneByEmail(email: string, select?: (keyof User)[]) {
+    const tenantId = this.tenantContextService.getTenantId();
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: { email, tenant: { id: tenantId } },
       select,
     });
     if (!user) {
@@ -57,16 +67,22 @@ export class UsersService {
   }
 
   async updateUser(id: string, user: UpdateUserDto) {
-    const updated = await this.userRepository.update(id, user);
-    if (!updated) {
+    const tenantId = this.tenantContextService.getTenantId();
+    const existingUser = await this.userRepository.findOne({
+      where: { id, tenant: { id: tenantId } },
+    });
+    if (!existingUser) {
       const errorMessage = `User with ID ${id} not found.`;
       throw new NotFoundException(errorMessage);
     }
-
+    const updated = this.userRepository.merge(existingUser, user);
     return updated;
   }
 
   async findAll(): Promise<User[]> {
-    return await this.userRepository.find();
+    const tenantId = this.tenantContextService.getTenantId();
+    return await this.userRepository.find({
+      where: { tenant: { id: tenantId } },
+    });
   }
 }
