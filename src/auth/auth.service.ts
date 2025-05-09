@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   InternalServerErrorException,
   ForbiddenException,
+  UseGuards,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
@@ -14,8 +15,10 @@ import {
 import { User } from 'src/user/entity/user.entity';
 import { UsersService } from 'src/user/user.service';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
+import { TenantGuard } from 'src/tenant/guards/tenant.guard';
 
 @Injectable()
+@UseGuards(TenantGuard)
 export class AuthService {
   constructor(
     private usersService: UsersService,
@@ -72,6 +75,7 @@ export class AuthService {
         'email',
         'role',
         'password',
+        'tenant',
       ]);
       if (!user) {
         throw new ForbiddenException('Invalid credentials');
@@ -91,6 +95,10 @@ export class AuthService {
 
   async login(user: Omit<User, 'password'>) {
     try {
+      if (!user.tenant?.id) {
+        throw new InternalServerErrorException('User tenant information is missing');
+      }
+
       const jti = uuidv4();
       const payload: JwtRefreshPayload = {
         email: user.email,
@@ -110,6 +118,7 @@ export class AuthService {
         refreshToken,
       };
     } catch (error) {
+      console.log('error', error);
       throw new InternalServerErrorException('Error during login process');
     }
   }

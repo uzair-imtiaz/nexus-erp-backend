@@ -58,6 +58,7 @@ export class UsersService {
     const user = await this.userRepository.findOne({
       where: { email, tenant: { id: tenantId } },
       select,
+      relations: ['tenant'],
     });
     if (!user) {
       const errorMessage = `User with email ${email} not found.`;

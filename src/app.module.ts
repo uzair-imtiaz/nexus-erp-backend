@@ -11,6 +11,8 @@ import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
 import { SubcategoriesModule } from './subcategories/subcategories.module';
 import { TenantModule } from './tenant/tenant.module';
 import { UsersModule } from './user/user.module';
+import { APP_GUARD } from '@nestjs/core';
+import { TenantGuard } from './tenant/guards/tenant.guard';
 
 @Module({
   imports: [
@@ -30,6 +32,12 @@ import { UsersModule } from './user/user.module';
     TenantModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: TenantGuard,
+    },
+  ],
 })
 export class AppModule {}
