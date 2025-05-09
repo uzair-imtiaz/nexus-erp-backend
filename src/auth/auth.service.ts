@@ -55,6 +55,7 @@ export class AuthService {
         email: decoded.email,
         role: decoded.role,
         jti: decoded.jti,
+        tenantId: decoded.tenantId,
       };
     } catch (e) {
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -96,6 +97,7 @@ export class AuthService {
         sub: user.id,
         jti,
         role: user.role,
+        tenantId: user.tenant.id,
       };
       const accessToken = this.generateAccessToken(payload);
       const refreshToken = await this.refreshTokensService.create(
@@ -131,6 +133,7 @@ export class AuthService {
         sub: payload.sub,
         email: payload.email,
         role: payload.role,
+        tenantId: payload.tenantId,
       });
       return {
         accessToken: newAccessToken,
