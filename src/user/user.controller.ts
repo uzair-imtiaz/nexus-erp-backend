@@ -7,11 +7,10 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import { UsersService } from './user.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UuidValidationPipe } from 'src/common/pipes/UuidValidationPipe';
+import { UsersService } from './user.service';
 
 @Controller('users')
 export class UsersController {
@@ -26,7 +25,7 @@ export class UsersController {
   @Put(':id')
   async updateUser(
     @Body() updateUserDto: UpdateUserDto,
-    @Param('id', UuidValidationPipe) id: string,
+    @Param('id') id: string,
   ) {
     return this.userService.updateUser(id, updateUserDto);
   }
@@ -35,7 +34,6 @@ export class UsersController {
   @Get(':id')
   async findOne(@Param('id') id: string) {
     try {
-      console.log('id', id);
       return await this.userService.findOneById(id);
     } catch (error) {
       console.log(error);
