@@ -31,6 +31,10 @@ export class InventoryService {
     inventory.category = createInventoryDto.category;
     inventory.baseUnit = createInventoryDto.baseUnit;
 
+    if (createInventoryDto.multiUnits) {
+      inventory.multiUnits = createInventoryDto.multiUnits;
+    }
+    
     if (createInventoryDto.accountLevel1) {
       const accountLevel1 = await this.accountRepository.findOne({
         where: { id: createInventoryDto.accountLevel1 },

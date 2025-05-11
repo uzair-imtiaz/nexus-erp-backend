@@ -1,11 +1,14 @@
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
   IsPositive,
   IsString,
   IsUUID,
 } from 'class-validator';
+import { MultiUnitDto } from './multi-tenant.dto';
 
 export class CreateInventoryDto {
   @IsNotEmpty()
@@ -42,4 +45,8 @@ export class CreateInventoryDto {
   @IsString()
   @IsNotEmpty()
   accountLevel2: string;
+
+  @IsArray()
+  @IsOptional()
+  multiUnits?: MultiUnitDto[];
 }

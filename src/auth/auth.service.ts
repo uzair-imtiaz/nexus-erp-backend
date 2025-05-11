@@ -15,10 +15,8 @@ import {
 import { User } from 'src/user/entity/user.entity';
 import { UsersService } from 'src/user/user.service';
 import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
-import { TenantGuard } from 'src/tenant/guards/tenant.guard';
 
 @Injectable()
-@UseGuards(TenantGuard)
 export class AuthService {
   constructor(
     private usersService: UsersService,
@@ -29,7 +27,7 @@ export class AuthService {
   generateAccessToken(payload: JwtAccessPayload): string {
     try {
       return this.jwtService.sign(payload, {
-        expiresIn: '15m',
+        expiresIn: '1d',
         secret: process.env.JWT_SECRET,
       });
     } catch (error) {
@@ -96,7 +94,9 @@ export class AuthService {
   async login(user: Omit<User, 'password'>) {
     try {
       if (!user.tenant?.id) {
-        throw new InternalServerErrorException('User tenant information is missing');
+        throw new InternalServerErrorException(
+          'User tenant information is missing',
+        );
       }
 
       const jti = uuidv4();
@@ -116,6 +116,7 @@ export class AuthService {
       return {
         accessToken,
         refreshToken,
+        tenantId: user.tenant.id,
       };
     } catch (error) {
       console.log('error', error);

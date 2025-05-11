@@ -53,6 +53,9 @@ export class Inventory {
   @JoinColumn({ name: 'account_level_2_id' })
   accountLevel2: Account;
 
+  @Column({ type: 'jsonb', nullable: true })
+  multiUnits: { name: string; factor: number }[];
+
   @CreateDateColumn({ name: 'created_at', select: false })
   createdAt: Date;
 
