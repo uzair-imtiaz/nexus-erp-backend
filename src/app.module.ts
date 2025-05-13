@@ -13,6 +13,8 @@ import { TenantModule } from './tenant/tenant.module';
 import { UsersModule } from './user/user.module';
 import { APP_GUARD } from '@nestjs/core';
 import { TenantGuard } from './tenant/guards/tenant.guard';
+import { VendorModule } from './vendor/vendor.module';
+import { CustomerModule } from './customer/customer.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { TenantGuard } from './tenant/guards/tenant.guard';
     BankModule,
     RefreshTokensModule,
     TenantModule,
+    VendorModule,
+    CustomerModule,
   ],
   controllers: [AppController],
   providers: [

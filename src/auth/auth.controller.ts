@@ -57,6 +57,7 @@ export class AuthController {
   // @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
+  @SkipTenant()
   @ResponseMetadata({
     success: true,
     message: 'Logged out successfully',
