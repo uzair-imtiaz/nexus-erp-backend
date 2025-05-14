@@ -7,7 +7,7 @@ export class CreateAccountDto {
 
   @IsString()
   @IsNotEmpty()
-  type: string;
+  level: string;
 
   @IsOptional()
   @IsString()

@@ -2,11 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateAccountDto } from './dto/create-account.dto';
-import { Account } from './entity/account-base.entity';
+import { Account } from './entity/account.entity';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 
 @Injectable()
-export class SubcategoriesService {
+export class AccountService {
   constructor(
     @InjectRepository(Account)
     private accountRepository: Repository<Account>,
@@ -15,7 +15,7 @@ export class SubcategoriesService {
 
   async create(createAccountDto: CreateAccountDto): Promise<Account> {
     const tenantId = this.tenantContextService.getTenantId();
-    const { name, type, parentAccount } = createAccountDto;
+    const { name, level, parentAccount } = createAccountDto;
     let parent: Account | undefined;
     if (parentAccount) {
       const _parent = await this.accountRepository.findOneBy({
@@ -29,7 +29,7 @@ export class SubcategoriesService {
     this.accountRepository.create;
     const account = this.accountRepository.create({
       name,
-      type,
+      level,
       parentAccount: parent,
       tenant: { id: tenantId },
     });

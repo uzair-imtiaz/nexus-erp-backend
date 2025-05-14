@@ -8,7 +8,7 @@ import { BankModule } from './bank/bank.module';
 import dbConfig from './config/db.config';
 import { InventoryModule } from './inventory/inventory.module';
 import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
-import { SubcategoriesModule } from './subcategories/subcategories.module';
+import { AccountModule } from './account/account.module';
 import { TenantModule } from './tenant/tenant.module';
 import { UsersModule } from './user/user.module';
 import { APP_GUARD } from '@nestjs/core';
@@ -28,7 +28,7 @@ import { CustomerModule } from './customer/customer.module';
     AuthModule,
     UsersModule,
     InventoryModule,
-    SubcategoriesModule,
+    AccountModule,
     BankModule,
     RefreshTokensModule,
     TenantModule,

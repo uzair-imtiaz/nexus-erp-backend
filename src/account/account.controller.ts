@@ -1,22 +1,22 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
 import { CreateAccountDto } from './dto/create-account.dto';
-import { Account } from './entity/account-base.entity';
-import { SubcategoriesService } from './subcategories.service';
+import { Account } from './entity/account.entity';
+import { AccountService } from './account.service';
 
 @Controller('accounts')
-export class SubcategoriesController {
-  constructor(private readonly subcategoriesService: SubcategoriesService) {}
+export class AccountController {
+  constructor(private readonly AccountService: AccountService) {}
 
   @Post()
   @ResponseMetadata({ success: true, message: 'Account created' })
   async create(@Body() createAccountDto: CreateAccountDto): Promise<Account> {
-    return await this.subcategoriesService.create(createAccountDto);
+    return await this.AccountService.create(createAccountDto);
   }
 
   @Get()
   @ResponseMetadata({ success: true, message: 'Accounts found' })
   async findAll(@Query('type') type?: string): Promise<Account[]> {
-    return await this.subcategoriesService.findAll(type);
+    return await this.AccountService.findAll(type);
   }
 }

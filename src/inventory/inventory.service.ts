@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Account } from '../subcategories/entity/account-base.entity';
+import { Account } from '../account/entity/account.entity';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { Inventory } from './entity/inventory.entity';
 import { paginate, Paginated } from 'src/common/utils/paginate';
@@ -27,36 +27,11 @@ export class InventoryService {
     inventory.name = createInventoryDto.name;
     inventory.quantity = createInventoryDto.quantity;
     inventory.baseRate = createInventoryDto.baseRate;
-    inventory.accountGroup = createInventoryDto.accountGroup;
     inventory.category = createInventoryDto.category;
     inventory.baseUnit = createInventoryDto.baseUnit;
 
     if (createInventoryDto.multiUnits) {
       inventory.multiUnits = createInventoryDto.multiUnits;
-    }
-    
-    if (createInventoryDto.accountLevel1) {
-      const accountLevel1 = await this.accountRepository.findOne({
-        where: { id: createInventoryDto.accountLevel1 },
-      });
-      if (!accountLevel1) {
-        throw new NotFoundException(
-          `Account Level 1 with ID ${createInventoryDto.accountLevel1} not found`,
-        );
-      }
-      inventory.accountLevel1 = accountLevel1;
-    }
-
-    if (createInventoryDto.accountLevel2) {
-      const accountLevel2 = await this.accountRepository.findOne({
-        where: { id: createInventoryDto.accountLevel2 },
-      });
-      if (!accountLevel2) {
-        throw new NotFoundException(
-          `Account Level 2 with ID ${createInventoryDto.accountLevel2} not found`,
-        );
-      }
-      inventory.accountLevel2 = accountLevel2;
     }
 
     const latest = await this.inventoryRepository

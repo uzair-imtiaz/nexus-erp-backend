@@ -27,23 +27,11 @@ export class CreateInventoryDto {
 
   @IsNotEmpty()
   @IsString()
-  accountGroup: string;
-
-  @IsNotEmpty()
-  @IsString()
   category: string;
 
   @IsString()
   @IsNotEmpty()
   baseUnit: string;
-
-  @IsString()
-  @IsNotEmpty()
-  accountLevel1: string;
-
-  @IsString()
-  @IsNotEmpty()
-  accountLevel2: string;
 
   @IsArray()
   @IsOptional()
