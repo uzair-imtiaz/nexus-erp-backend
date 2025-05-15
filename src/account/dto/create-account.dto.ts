@@ -1,15 +1,52 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateIf,
+} from 'class-validator';
+import { AccountType } from '../interfaces/account-type.enum';
+import { Transform } from 'class-transformer';
 
 export class CreateAccountDto {
-  @IsString()
   @IsNotEmpty()
+  @IsString()
   name: string;
 
-  @IsString()
   @IsNotEmpty()
-  level: string;
+  @IsString()
+  code: string;
+
+  @IsEnum(AccountType)
+  type: AccountType;
+
+  @ValidateIf((o) => o.type === AccountType.SUB_ACCOUNT)
+  @IsNotEmpty()
+  @IsString()
+  entityType?: string;
+
+  @IsNumber()
+  @IsOptional()
+  amount?: number;
+
+  @ValidateIf((o) => o.type === AccountType.SUB_ACCOUNT)
+  @IsNotEmpty()
+  @IsString()
+  @Transform(({ value }) =>
+    value !== null && value !== undefined ? String(value) : value,
+  )
+  entityId?: string;
 
   @IsOptional()
   @IsString()
-  parentAccount?: string;
+  @Transform(({ value }) =>
+    value !== null && value !== undefined ? String(value) : value,
+  )
+  parentId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  systemGenerated?: boolean;
 }
