@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   InternalServerErrorException,
   ForbiddenException,
+  UseGuards,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
@@ -26,7 +27,7 @@ export class AuthService {
   generateAccessToken(payload: JwtAccessPayload): string {
     try {
       return this.jwtService.sign(payload, {
-        expiresIn: '15m',
+        expiresIn: '1d',
         secret: process.env.JWT_SECRET,
       });
     } catch (error) {
@@ -55,6 +56,7 @@ export class AuthService {
         email: decoded.email,
         role: decoded.role,
         jti: decoded.jti,
+        tenantId: decoded.tenantId,
       };
     } catch (e) {
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -71,6 +73,7 @@ export class AuthService {
         'email',
         'role',
         'password',
+        'tenant',
       ]);
       if (!user) {
         throw new ForbiddenException('Invalid credentials');
@@ -90,12 +93,19 @@ export class AuthService {
 
   async login(user: Omit<User, 'password'>) {
     try {
+      if (!user.tenant?.id) {
+        throw new InternalServerErrorException(
+          'User tenant information is missing',
+        );
+      }
+
       const jti = uuidv4();
       const payload: JwtRefreshPayload = {
         email: user.email,
         sub: user.id,
         jti,
         role: user.role,
+        tenantId: user.tenant.id,
       };
       const accessToken = this.generateAccessToken(payload);
       const refreshToken = await this.refreshTokensService.create(
@@ -106,8 +116,10 @@ export class AuthService {
       return {
         accessToken,
         refreshToken,
+        tenantId: user.tenant.id,
       };
     } catch (error) {
+      console.log('error', error);
       throw new InternalServerErrorException('Error during login process');
     }
   }
@@ -131,6 +143,7 @@ export class AuthService {
         sub: payload.sub,
         email: payload.email,
         role: payload.role,
+        tenantId: payload.tenantId,
       });
       return {
         accessToken: newAccessToken,

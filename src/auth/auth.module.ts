@@ -4,12 +4,20 @@ import { RefreshTokensModule } from 'src/refresh-tokens/refresh-tokens.module';
 import { UsersModule } from 'src/user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { LocalStrategy } from './strategies/jwt-local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { TenantModule } from 'src/tenant/tenant.module';
+import { PassportModule } from '@nestjs/passport';
 
 @Module({
-  imports: [UsersModule, RefreshTokensModule, JwtModule],
+  imports: [
+    UsersModule,
+    RefreshTokensModule,
+    PassportModule,
+    JwtModule,
+    TenantModule,
+  ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService],
 })
 export class AuthModule {}

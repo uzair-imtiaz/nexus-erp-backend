@@ -11,11 +11,13 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './user.service';
+import { SkipTenant } from 'src/common/decorators/skip-tenant-check.decorator';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly userService: UsersService) {}
 
+  @SkipTenant()
   @Post()
   async create(@Body() createUserDto: CreateUserDto) {
     return this.userService.create(createUserDto);

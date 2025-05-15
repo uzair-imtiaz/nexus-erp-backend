@@ -1,4 +1,5 @@
-import { Account } from 'src/subcategories/entity/account-base.entity';
+import { Account } from 'src/account/entity/account.entity';
+import { Tenant } from 'src/tenant/entity/tenant.entity';
 import {
   Column,
   CreateDateColumn,
@@ -32,22 +33,17 @@ export class Inventory {
   })
   baseRate: number;
 
-  @Column({ name: 'account_group', default: 'asset' })
-  accountGroup: string;
-
   @Column({ nullable: true })
   category: string;
 
   @Column()
   baseUnit: string;
 
-  @ManyToOne(() => Account)
-  @JoinColumn({ name: 'account_level_1_id' })
-  accountLevel1: Account;
+  @ManyToOne(() => Tenant)
+  tenant: Tenant;
 
-  @ManyToOne(() => Account)
-  @JoinColumn({ name: 'account_level_2_id' })
-  accountLevel2: Account;
+  @Column({ type: 'jsonb', nullable: true })
+  multiUnits: { name: string; factor: number }[];
 
   @CreateDateColumn({ name: 'created_at', select: false })
   createdAt: Date;
