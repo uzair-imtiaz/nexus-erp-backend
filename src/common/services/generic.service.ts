@@ -7,7 +7,7 @@ import { DeepPartial, ObjectLiteral, Repository } from 'typeorm';
 export class GenericService<
   T extends ObjectLiteral,
   CreateDto extends DeepPartial<T>,
-  UpdateDto extends DeepPartial<T>
+  UpdateDto extends DeepPartial<T>,
 > {
   protected readonly allowedFilters: string[] = ['name'];
   protected readonly entityName: string;
@@ -24,16 +24,17 @@ export class GenericService<
     const tenantId = this.tenantContextService.getTenantId();
     const entity = this.repository.create({
       ...data,
-      tenant: { id: tenantId }
+      tenant: { id: tenantId },
     } as DeepPartial<T>);
     return await this.repository.save(entity);
   }
 
+  //TODO: need to check tenant.id
   async findAll(filters: Record<string, any>): Promise<Paginated<T>> {
     const tenantId = this.tenantContextService.getTenantId();
     const queryBuilder = this.repository
       .createQueryBuilder(this.entityName)
-      .where('entity.tenant.id = :tenantId', { tenantId });
+      .where('${this.entityName}.tenant.id = :tenantId', { tenantId });
 
     const { page, limit, ...filterFields } = filters;
     const ALLOWED_FILTERS = ['name'];
@@ -62,7 +63,10 @@ export class GenericService<
 
   async update(id: string, data: UpdateDto) {
     const existingContact = await this.findOne(id);
-    const updated = this.repository.merge(existingContact, data as DeepPartial<T>);
+    const updated = this.repository.merge(
+      existingContact,
+      data as DeepPartial<T>,
+    );
     return await this.repository.save(updated);
   }
 

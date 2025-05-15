@@ -14,6 +14,7 @@ import { Account } from './entity/account.entity';
 import { AccountService } from './account.service';
 import { AccountType } from './interfaces/account-type.enum';
 import { UpdateAccountDto } from './dto/update-account.dto';
+import { AccountTree } from './interfaces/account-tree.interface';
 
 @Controller('accounts')
 export class AccountController {
@@ -27,13 +28,13 @@ export class AccountController {
 
   @Get()
   @ResponseMetadata({ success: true, message: 'Accounts fetched successfully' })
-  async findAll(): Promise<Account[]> {
+  async findAll(): Promise<AccountTree[]> {
     return await this.AccountService.findAll();
   }
 
   @Get(':type')
   @ResponseMetadata({ success: true, message: 'Accounts fetched successfully' })
-  async findByType(@Query('type') type: AccountType): Promise<Account[]> {
+  async findByType(@Param('type') type: AccountType): Promise<Account[]> {
     return await this.AccountService.findByType(type);
   }
 

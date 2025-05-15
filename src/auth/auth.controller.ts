@@ -41,9 +41,9 @@ export class AuthController {
       sameSite: 'strict',
     });
     res.cookie('accessToken', accessToken, {
-      // httpOnly: true,
       secure: true,
       sameSite: 'strict',
+      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 1),
     });
     res.cookie('tenantId', tenantId, {
       secure: true,

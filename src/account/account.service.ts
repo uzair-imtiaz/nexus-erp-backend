@@ -1,185 +1,269 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, TreeRepository, DeepPartial, Brackets } from 'typeorm';
+import { In, Repository, DataSource, DeepPartial, Brackets } from 'typeorm';
+import { AccountTree } from './interfaces/account-tree.interface';
 import { Account } from './entity/account.entity';
-import { AccountType } from './interfaces/account-type.enum';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
+import { AccountType } from './interfaces/account-type.enum';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 
 @Injectable()
 export class AccountService {
-  private treeRepository: TreeRepository<Account>;
-
   constructor(
     @InjectRepository(Account)
-    private readonly accountRepository: Repository<Account>,
-    private readonly tenantContextService: TenantContextService,
-  ) {
-    this.treeRepository =
-      this.accountRepository.manager.getTreeRepository(Account);
-  }
+    private accountRepository: Repository<Account>,
+    private dataSource: DataSource,
+    private tenantContextService: TenantContextService,
+  ) {}
 
-  /**
-   * Recursively update the parent amounts from the given account ID
-   * @param accountId ID of the account to start from
-   */
-  private async updateAmountUpwards(tenantId: string, accountId?: string) {
-    if (!accountId) return;
-
-    const children = await this.accountRepository.find({
-      where: { parent: { id: accountId }, tenant: { id: tenantId } },
-    });
-    const total = children.reduce(
-      (sum, child) => sum + Number(child.amount),
-      0,
-    );
-
-    await this.accountRepository.update(accountId, { amount: total });
-
-    // Recursively update further up the tree
-    const parent = await this.accountRepository.findOne({
-      where: { id: accountId },
-      relations: ['parent'],
-    });
-    if (parent?.parent?.id) {
-      await this.updateAmountUpwards(parent.parent.id);
-    }
-  }
-
-  /**
-   * Create a new Account
-   * @param accountData Partial<Account> data to create
-   */
-  async create(accountData: CreateAccountDto): Promise<Account> {
+  async create(input: CreateAccountDto): Promise<Account> {
     const tenantId = this.tenantContextService.getTenantId()!;
-    const account = this.accountRepository.create(
-      accountData as DeepPartial<Account>,
-    );
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    // Optional: validate parent exists if parentId provided
-    if (accountData.parentId) {
-      const parent = await this.accountRepository
-        .createQueryBuilder('account')
-        .where('account.id = :id', { id: accountData.parentId })
-        .andWhere(
-          new Brackets((qb) => {
-            qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
-              'account.systemGenerated = :systemGenerated',
-              {
-                systemGenerated: true,
-              },
-            );
-          }),
-        )
-        .getOne();
-      if (!parent) {
-        throw new NotFoundException('Parent account not found');
+    try {
+      const account = this.accountRepository.create({
+        ...(input as DeepPartial<Account>),
+        tenant: { id: tenantId },
+      });
+
+      if (input.parentId) {
+        const parent = await queryRunner.manager
+          .createQueryBuilder(Account, 'account')
+          .where('account.id = :id', { id: input.parentId })
+          .andWhere(
+            new Brackets((qb) => {
+              qb.where('account.tenant = :tenantId', { tenantId }).orWhere(
+                'account.system_generated = true',
+              );
+            }),
+          )
+          .getOneOrFail();
+        account.parent = parent;
       }
-      account.parent = parent;
+      await queryRunner.manager.save(account);
+
+      if (account.amount) {
+        await this.propagateAmount(
+          queryRunner,
+          account,
+          account.amount,
+          tenantId,
+        );
+      }
+
+      await queryRunner.commitTransaction();
+      return account;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    const savedAccount = await this.accountRepository.save({
-      ...account,
-      tenant: { id: tenantId },
-    });
-
-    // If this is a sub-account (Level 4), propagate amount upwards
-    if (accountData.amount !== undefined) {
-      await this.updateAmountUpwards(tenantId, savedAccount.parent?.id);
-    }
-
-    return savedAccount;
   }
 
-  /**
-   * Find all accounts of a specific type without children
-   * @param type AccountType enum value
-   */
   async findByType(type: AccountType): Promise<Account[]> {
     const tenantId = this.tenantContextService.getTenantId();
-
     const accounts = await this.accountRepository
       .createQueryBuilder('account')
       .where('account.type = :type', { type })
+      .andWhere('NOT account.path LIKE :likePattern', { likePattern: '%/%' })
       .andWhere(
         new Brackets((qb) => {
-          qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
-            'account.systemGenerated = :systemGenerated',
-            {
-              systemGenerated: true,
-            },
+          qb.where('account.tenant = :tenantId', { tenantId }).orWhere(
+            'account.system_generated = true',
           );
         }),
       )
-      .orderBy('account.code', 'ASC')
       .getMany();
-
     return accounts;
   }
 
-  /**
-   * Find all accounts with full nested children hierarchy
-   */
-  async findAll(): Promise<Account[]> {
-    return this.treeRepository.findTrees();
-  }
-
-  /**
-   * Update an account by ID
-   * @param id Account ID
-   * @param updateData Partial<Account> data to update
-   */
-  async update(id: string, updateData: UpdateAccountDto): Promise<Account> {
-    const account = await this.accountRepository.findOneBy({ id });
-    if (!account) {
-      throw new NotFoundException('Account not found');
-    }
-
-    // If updating parent, validate it exists and prevent circular reference
-    if (updateData.parentId) {
-      if (updateData.parentId === id) {
-        throw new Error('Account cannot be parent of itself');
-      }
-      const parent = await this.accountRepository.findOneBy({
-        id: updateData.parentId,
-      });
-      if (!parent) {
-        throw new NotFoundException('Parent account not found');
-      }
-      account.parent = parent;
-    }
-
-    if (updateData.amount && updateData.amount !== account?.amount) {
-      account.amount = updateData.amount;
-      await this.updateAmountUpwards(account.parent?.id);
-    }
-    this.accountRepository.merge(account, updateData);
-    return this.accountRepository.save(account);
-  }
-
-  /**
-   * Delete an account by ID
-   * @param id Account ID
-   */
-  async delete(id: string): Promise<void> {
-    const account = await this.accountRepository.findOne({
-      where: { id },
-      relations: ['parent'], // load parent to update amounts after deletion
+  async findAll(): Promise<AccountTree[]> {
+    const tenantId = this.tenantContextService.getTenantId()!;
+    const accounts = await this.accountRepository.find({
+      where: [{ tenant: { id: tenantId } }, { systemGenerated: true }],
+      order: { path: 'ASC' },
     });
-    if (!account) {
-      throw new NotFoundException('Account not found');
+    return this.buildTree(accounts);
+  }
+
+  // Update Account with Amount Propagation
+  async update(id: string, input: UpdateAccountDto): Promise<Account> {
+    const tenantId = this.tenantContextService.getTenantId()!;
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const account = await queryRunner.manager
+        .createQueryBuilder(Account, 'account')
+        .where('account.id = :id', { id })
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
+              'account.system_generated = true',
+            );
+          }),
+        )
+        .getOneOrFail();
+      const oldAmount = account.amount;
+
+      if (input.parentId) {
+        const parent = await queryRunner.manager
+          .createQueryBuilder(Account, 'account')
+          .where('account.id = :id', { id: input.parentId })
+          .andWhere(
+            new Brackets((qb) => {
+              qb.where('account.tenant = :tenantId', { tenantId }).orWhere(
+                'account.system_generated = true',
+              );
+            }),
+          )
+          .getOneOrFail();
+        console.log('parent', parent);
+        account.parent = parent;
+      }
+
+      Object.assign(account, input);
+      await queryRunner.manager.save(account);
+
+      const delta = account.amount - oldAmount;
+      if (delta !== 0) {
+        await this.propagateAmount(queryRunner, account, delta, tenantId);
+      }
+
+      await queryRunner.commitTransaction();
+      return account;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
+  }
 
-    const descendants = await this.treeRepository.findDescendants(account);
-    const idsToDelete = descendants.map((acc) => acc.id);
+  // Delete Account and Descendants with Amount Reversal
+  async delete(id: string): Promise<void> {
+    const tenantId = this.tenantContextService.getTenantId();
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    // Delete all descendants in one query
-    await this.accountRepository.delete(idsToDelete);
+    try {
+      const account = await queryRunner.manager
+        .createQueryBuilder(Account, 'account')
+        .where('account.id = :id', { id })
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
+              'account.system_generated = true',
+            );
+          }),
+        )
+        .getOneOrFail();
 
-    // After deletion, update amounts upwards starting from the deleted node's parent
-    if (account.parent?.id) {
-      await this.updateAmountUpwards(account.parent.id);
+      // Get all descendants including self
+      const descendants = await queryRunner.manager
+        .createQueryBuilder(Account, 'account')
+        .where('account.path LIKE :path', { path: `${account.path}%` })
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
+              'account.system_generated = true',
+            );
+          }),
+        )
+        .getMany();
+
+      // Calculate total amount to subtract
+      const totalAmount = descendants.reduce((sum, acc) => sum + acc.amount, 0);
+
+      // Delete descendants
+      await queryRunner.manager.remove(descendants);
+
+      // Update ancestors
+      const ancestorCodes = account.path.split('/').slice(0, -1);
+      if (ancestorCodes.length > 0) {
+        await queryRunner.manager
+          .createQueryBuilder(Account, 'account')
+          .update()
+          .set({ amount: () => `"amount" - :totalAmount` })
+          .where('account.code IN (:...codes)', { codes: ancestorCodes })
+          .andWhere(
+            new Brackets((qb) => {
+              qb.where('"account"."tenantId" = :tenantId', {
+                tenantId,
+              }).orWhere('account.system_generated = true');
+            }),
+          )
+          .setParameter('totalAmount', totalAmount)
+          .execute();
+      }
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
+  }
+
+  // Helper: Propagate amount changes to ancestors
+  private async propagateAmount(
+    queryRunner: any,
+    account: Account,
+    delta: number,
+    tenantId: string,
+  ) {
+    const ancestorCodes = account.path.split('/').slice(0, -1);
+    if (ancestorCodes.length > 0) {
+      await queryRunner.manager
+        .createQueryBuilder()
+        .update(Account)
+        .set({ amount: () => `amount + ${delta}` })
+        .where({ code: In(ancestorCodes) })
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where('tenant = :tenantId', { tenantId }).orWhere(
+              'system_generated = true',
+            );
+          }),
+        )
+        .execute();
+    }
+  }
+
+  private buildTree(accounts: Account[]): AccountTree[] {
+    const map = new Map<string, AccountTree>();
+    const roots: AccountTree[] = [];
+
+    accounts.forEach((account) => {
+      map.set(account.code, {
+        ...account,
+        children: [],
+        parent_id: account?.parent?.id,
+      });
+    });
+
+    accounts.forEach((account) => {
+      const pathParts = account.path.split('/');
+
+      if (pathParts.length === 1) {
+        // Root node
+        roots.push(map.get(account.code)!);
+      } else {
+        const parentCode = pathParts[pathParts.length - 2];
+        const parent = map.get(parentCode);
+        if (parent) {
+          parent.children.push(map.get(account.code)!);
+        }
+      }
+    });
+
+    return roots;
   }
 }
