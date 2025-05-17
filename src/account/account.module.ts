@@ -9,5 +9,6 @@ import { TenantModule } from 'src/tenant/tenant.module';
   imports: [TypeOrmModule.forFeature([Account]), TenantModule],
   controllers: [AccountController],
   providers: [AccountService],
+  exports: [AccountService],
 })
 export class AccountModule {}

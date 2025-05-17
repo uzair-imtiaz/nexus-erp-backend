@@ -1,6 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, DataSource, DeepPartial, Brackets } from 'typeorm';
+import {
+  In,
+  Repository,
+  DataSource,
+  DeepPartial,
+  Brackets,
+  QueryRunner,
+} from 'typeorm';
 import { AccountTree } from './interfaces/account-tree.interface';
 import { Account } from './entity/account.entity';
 import { CreateAccountDto } from './dto/create-account.dto';
@@ -17,13 +24,36 @@ export class AccountService {
     private tenantContextService: TenantContextService,
   ) {}
 
-  async create(input: CreateAccountDto): Promise<Account> {
+  async create(
+    input: CreateAccountDto,
+    queryRunner?: QueryRunner,
+  ): Promise<Account> {
+    let ownQueryRunner = false;
     const tenantId = this.tenantContextService.getTenantId()!;
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+
+    if (!queryRunner) {
+      queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+      ownQueryRunner = true;
+    }
 
     try {
+      const existingAccount = await queryRunner.manager
+        .createQueryBuilder(Account, 'account')
+        .where('account.code = :code', { code: input.code })
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where('account.tenant = :tenantId', { tenantId }).orWhere(
+              'account.system_generated = true',
+            );
+          }),
+        )
+        .getOne();
+      if (existingAccount) {
+        throw new ConflictException('Account code already exists');
+      }
+
       const account = this.accountRepository.create({
         ...(input as DeepPartial<Account>),
         tenant: { id: tenantId },
@@ -54,13 +84,13 @@ export class AccountService {
         );
       }
 
-      await queryRunner.commitTransaction();
+      if (ownQueryRunner) await queryRunner.commitTransaction();
       return account;
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (ownQueryRunner) await queryRunner.rollbackTransaction();
       throw error;
     } finally {
-      await queryRunner.release();
+      if (ownQueryRunner) await queryRunner.release();
     }
   }
 
@@ -69,7 +99,6 @@ export class AccountService {
     const accounts = await this.accountRepository
       .createQueryBuilder('account')
       .where('account.type = :type', { type })
-      .andWhere('NOT account.path LIKE :likePattern', { likePattern: '%/%' })
       .andWhere(
         new Brackets((qb) => {
           qb.where('account.tenant = :tenantId', { tenantId }).orWhere(
@@ -91,11 +120,20 @@ export class AccountService {
   }
 
   // Update Account with Amount Propagation
-  async update(id: string, input: UpdateAccountDto): Promise<Account> {
+  async update(
+    id: string,
+    input: UpdateAccountDto,
+    queryRunner?: QueryRunner,
+  ): Promise<Account> {
+    let ownQueryRunner = false;
     const tenantId = this.tenantContextService.getTenantId()!;
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+
+    if (!queryRunner) {
+      queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+      ownQueryRunner = true;
+    }
 
     try {
       const account = await queryRunner.manager
@@ -123,34 +161,40 @@ export class AccountService {
             }),
           )
           .getOneOrFail();
-        console.log('parent', parent);
         account.parent = parent;
       }
 
       Object.assign(account, input);
       await queryRunner.manager.save(account);
 
-      const delta = account.amount - oldAmount;
+      const newAmount = account.amount ?? 0;
+      const delta = newAmount - oldAmount;
+
       if (delta !== 0) {
         await this.propagateAmount(queryRunner, account, delta, tenantId);
       }
 
-      await queryRunner.commitTransaction();
+      if (ownQueryRunner) await queryRunner.commitTransaction();
       return account;
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (ownQueryRunner) await queryRunner.rollbackTransaction();
       throw error;
     } finally {
-      await queryRunner.release();
+      if (ownQueryRunner) await queryRunner.release();
     }
   }
 
   // Delete Account and Descendants with Amount Reversal
-  async delete(id: string): Promise<void> {
-    const tenantId = this.tenantContextService.getTenantId();
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+  async delete(id: string, queryRunner?: QueryRunner): Promise<void> {
+    let ownQueryRunner = false;
+    const tenantId = this.tenantContextService.getTenantId()!;
+
+    if (!queryRunner) {
+      queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+      ownQueryRunner = true;
+    }
 
     try {
       const account = await queryRunner.manager
@@ -203,12 +247,12 @@ export class AccountService {
           .execute();
       }
 
-      await queryRunner.commitTransaction();
+      if (ownQueryRunner) await queryRunner.commitTransaction();
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (ownQueryRunner) await queryRunner.rollbackTransaction();
       throw error;
     } finally {
-      await queryRunner.release();
+      if (ownQueryRunner) await queryRunner.release();
     }
   }
 
@@ -265,5 +309,19 @@ export class AccountService {
     });
 
     return roots;
+  }
+
+  async findByEntityIdAndType(
+    entityId: string,
+    entityType: string,
+  ): Promise<Account | null> {
+    const tenantId = this.tenantContextService.getTenantId();
+    return this.accountRepository.findOne({
+      where: {
+        entityId,
+        entityType,
+        tenant: { id: tenantId },
+      },
+    });
   }
 }

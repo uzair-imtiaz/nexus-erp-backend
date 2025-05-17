@@ -45,7 +45,6 @@ export class Account extends BaseEntity {
   @BeforeInsert()
   @BeforeUpdate()
   async setPath() {
-    console.log('this.parentAccount', this);
     if (this.parent) {
       if (!this.parent.path) {
         throw new Error('Parent account path is required');

@@ -1,50 +1,80 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Account } from '../account/entity/account.entity';
-import { CreateInventoryDto } from './dto/create-inventory.dto';
-import { Inventory } from './entity/inventory.entity';
+import { plainToInstance } from 'class-transformer';
+import { AccountService } from 'src/account/account.service';
+import { CreateAccountDto } from 'src/account/dto/create-account.dto';
+import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { paginate, Paginated } from 'src/common/utils/paginate';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { Repository } from 'typeorm';
+import { CreateInventoryDto } from './dto/create-inventory.dto';
+import { Inventory } from './entity/inventory.entity';
+import { UpdateInventoryDto } from './dto/update-inventory.dto';
+import { DataSource } from 'typeorm';
 
 @Injectable()
 export class InventoryService {
   constructor(
     @InjectRepository(Inventory)
     private inventoryRepository: Repository<Inventory>,
-    @InjectRepository(Account)
-    private accountRepository: Repository<Account>,
     private readonly tenantContextService: TenantContextService,
+    private readonly accountService: AccountService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(createInventoryDto: CreateInventoryDto): Promise<Inventory> {
     const tenantId = this.tenantContextService.getTenantId();
-    const inventory = new Inventory();
-    inventory.name = createInventoryDto.name;
-    inventory.quantity = createInventoryDto.quantity;
-    inventory.baseRate = createInventoryDto.baseRate;
-    inventory.category = createInventoryDto.category;
-    inventory.baseUnit = createInventoryDto.baseUnit;
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (createInventoryDto.multiUnits) {
-      inventory.multiUnits = createInventoryDto.multiUnits;
+    try {
+      const existingInventory = await queryRunner.manager
+        .createQueryBuilder(Inventory, 'inventory')
+        .where('inventory.code = :code', { code: createInventoryDto.code })
+        .andWhere('inventory.tenant.id = :tenantId', { tenantId })
+        .getOne();
+
+      if (existingInventory) {
+        throw new ConflictException('Inventory code already exists');
+      }
+      const inventory = this.inventoryRepository.create({
+        ...createInventoryDto,
+        tenant: { id: tenantId },
+      });
+
+      const savedInventory = await queryRunner.manager.save(
+        Inventory,
+        inventory,
+      );
+
+      const instance = plainToInstance(Inventory, savedInventory);
+
+      const account: CreateAccountDto = {
+        name: instance.name,
+        code: instance.code,
+        type: AccountType.SUB_ACCOUNT,
+        parentId: instance.parentId,
+        entityId: instance.id,
+        entityType: 'inventory',
+        amount: instance.amount,
+      };
+
+      await this.accountService.create(account, queryRunner);
+
+      await queryRunner.commitTransaction();
+      return instance;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    const latest = await this.inventoryRepository
-      .createQueryBuilder('inventory')
-      .where('inventory.tenant = :tenantId', { tenantId })
-      .orderBy('inventory.id', 'DESC')
-      .getOne();
-
-    const nextId = latest ? parseInt(latest.id.replace('ITEM-', '')) + 1 : 1;
-    const id = `ITEM-${nextId.toString().padStart(5, '0')}`;
-    inventory.id = id;
-
-    return await this.inventoryRepository.save(inventory);
   }
 
   async findAll(filters: Record<string, any>): Promise<Paginated<Inventory>> {
@@ -55,9 +85,8 @@ export class InventoryService {
 
     const queryBuilder = this.inventoryRepository
       .createQueryBuilder('inventory')
-      .leftJoinAndSelect('inventory.accountLevel1', 'accountLevel1')
-      .leftJoinAndSelect('inventory.accountLevel2', 'accountLevel2')
-      .where('inventory.tenant.id = :tenantId', { tenantId });
+      .leftJoinAndSelect('inventory.tenant', 'tenant')
+      .where('tenant.id = :tenantId', { tenantId });
 
     const { page, limit, ...filterFields } = filters;
     const ALLOWED_FILTERS = ['name', 'category'];
@@ -70,7 +99,12 @@ export class InventoryService {
       }
     });
 
-    return paginate(queryBuilder, page, limit);
+    const paginated = await paginate(queryBuilder, page, limit);
+    paginated.data = paginated.data.map((item) => {
+      const instance = plainToInstance(Inventory, item);
+      return instance;
+    });
+    return paginated;
   }
 
   async findOne(id: string): Promise<Inventory> {
@@ -83,6 +117,94 @@ export class InventoryService {
       throw new NotFoundException(`Inventory with ID ${id} not found`);
     }
 
-    return inventory;
+    return plainToInstance(Inventory, inventory);
+  }
+
+  async delete(id: string) {
+    const tenantId = this.tenantContextService.getTenantId();
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const inventory = await this.inventoryRepository.findOneBy({
+        id,
+        tenant: { id: tenantId },
+      });
+      if (!inventory) {
+        throw new NotFoundException(`Inventory with ID ${id} not found`);
+      }
+
+      const account = await this.accountService.findByEntityIdAndType(
+        id,
+        'inventory',
+      );
+      if (account) {
+        await this.accountService.delete(account.id, queryRunner);
+      }
+
+      await this.inventoryRepository.delete(id);
+
+      queryRunner.commitTransaction();
+      return;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async update(id: string, updateInventoryDto: UpdateInventoryDto) {
+    const tenantId = this.tenantContextService.getTenantId();
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Find the inventory
+      const inventory = await queryRunner.manager
+        .createQueryBuilder(Inventory, 'inventory')
+        .where('inventory.id = :id', { id })
+        .andWhere('inventory.tenant.id = :tenantId', { tenantId })
+        .getOne();
+
+      if (!inventory) {
+        throw new NotFoundException(`Inventory with ID ${id} not found`);
+      }
+
+      // Update inventory
+      Object.assign(inventory, updateInventoryDto);
+      const updatedInventory = await queryRunner.manager.save(inventory);
+      const instance = plainToInstance(Inventory, updatedInventory);
+
+      // Find and update the corresponding account
+      const account = await this.accountService.findByEntityIdAndType(
+        id,
+        'inventory',
+      );
+
+      if (account) {
+        const updateAccountDto = {
+          name: instance.name,
+          code: instance.code,
+          parentId: instance.parentId,
+          amount: instance.amount,
+        };
+        await this.accountService.update(
+          account.id,
+          updateAccountDto,
+          queryRunner,
+        );
+      }
+
+      await queryRunner.commitTransaction();
+      return instance;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

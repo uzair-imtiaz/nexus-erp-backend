@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
-import { InventoryService } from './inventory.service';
-import { InventoryController } from './inventory.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Inventory } from './entity/inventory.entity';
-import { Account } from 'src/account/entity/account.entity';
+import { AccountModule } from 'src/account/account.module';
 import { TenantModule } from 'src/tenant/tenant.module';
+import { Inventory } from './entity/inventory.entity';
+import { InventoryController } from './inventory.controller';
+import { InventoryService } from './inventory.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Inventory, Account]), TenantModule],
+  imports: [TypeOrmModule.forFeature([Inventory]), AccountModule, TenantModule],
   controllers: [InventoryController],
   providers: [InventoryService],
 })

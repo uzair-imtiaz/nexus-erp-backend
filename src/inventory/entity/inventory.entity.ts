@@ -1,22 +1,14 @@
-import { Account } from 'src/account/entity/account.entity';
-import { Tenant } from 'src/tenant/entity/tenant.entity';
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Expose } from 'class-transformer';
+import { BaseEntity } from 'src/common/entities/base.entity';
+import { Column, CreateDateColumn, Entity, UpdateDateColumn } from 'typeorm';
 
 @Entity()
-export class Inventory {
-  @PrimaryColumn()
-  id: string;
-
+export class Inventory extends BaseEntity {
   @Column()
   name: string;
+
+  @Column({ unique: true })
+  code: string;
 
   @Column()
   quantity: number;
@@ -39,15 +31,25 @@ export class Inventory {
   @Column()
   baseUnit: string;
 
-  @ManyToOne(() => Tenant)
-  tenant: Tenant;
+  @Column({ name: 'parent_id', nullable: true })
+  parentId: string;
 
   @Column({ type: 'jsonb', nullable: true })
   multiUnits: { name: string; factor: number }[];
 
-  @CreateDateColumn({ name: 'created_at', select: false })
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', select: false })
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @Expose()
+  getAmount() {
+    return this.quantity * this.baseRate;
+  }
+
+  @Expose()
+  get amount() {
+    return this.getAmount();
+  }
 }
