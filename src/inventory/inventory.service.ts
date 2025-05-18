@@ -145,7 +145,7 @@ export class InventoryService {
 
       await this.inventoryRepository.delete(id);
 
-      queryRunner.commitTransaction();
+      await queryRunner.commitTransaction();
       return;
     } catch (error) {
       await queryRunner.rollbackTransaction();
