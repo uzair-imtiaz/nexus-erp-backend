@@ -54,8 +54,8 @@ export class AccountService {
         throw new ConflictException('Account code already exists');
       }
 
-      const account = this.accountRepository.create({
-        ...(input as DeepPartial<Account>),
+      const account = queryRunner.manager.create(Account, {
+        ...input,
         tenant: { id: tenantId },
       });
 
@@ -75,11 +75,19 @@ export class AccountService {
       }
       await queryRunner.manager.save(account);
 
-      if (account.amount) {
+      if (account.creditAmount) {
         await this.propagateAmount(
           queryRunner,
           account,
-          account.amount,
+          { type: 'creditAmount' as const, amount: account.creditAmount },
+          tenantId,
+        );
+      }
+      if (account.debitAmount) {
+        await this.propagateAmount(
+          queryRunner,
+          account,
+          { type: 'debitAmount' as const, amount: account.debitAmount },
           tenantId,
         );
       }
@@ -147,7 +155,9 @@ export class AccountService {
           }),
         )
         .getOneOrFail();
-      const oldAmount = account.amount;
+
+      const oldCredit = account.creditAmount ?? 0;
+      const oldDebit = account.debitAmount ?? 0;
 
       if (input.parentId) {
         const parent = await queryRunner.manager
@@ -167,11 +177,28 @@ export class AccountService {
       Object.assign(account, input);
       await queryRunner.manager.save(account);
 
-      const newAmount = account.amount ?? 0;
-      const delta = newAmount - oldAmount;
+      const newCredit = account.creditAmount ?? 0;
+      const newDebit = account.debitAmount ?? 0;
 
-      if (delta !== 0) {
-        await this.propagateAmount(queryRunner, account, delta, tenantId);
+      const creditDelta = newCredit - oldCredit;
+      const debitDelta = newDebit - oldDebit;
+
+      if (creditDelta !== 0) {
+        await this.propagateAmount(
+          queryRunner,
+          account,
+          { type: 'creditAmount', amount: creditDelta },
+          tenantId,
+        );
+      }
+
+      if (debitDelta !== 0) {
+        await this.propagateAmount(
+          queryRunner,
+          account,
+          { type: 'debitAmount', amount: debitDelta },
+          tenantId,
+        );
       }
 
       if (ownQueryRunner) await queryRunner.commitTransaction();
@@ -258,17 +285,18 @@ export class AccountService {
 
   // Helper: Propagate amount changes to ancestors
   private async propagateAmount(
-    queryRunner: any,
+    queryRunner: QueryRunner,
     account: Account,
-    delta: number,
+    amountData: { type: 'debitAmount' | 'creditAmount'; amount: number },
     tenantId: string,
   ) {
     const ancestorCodes = account.path.split('/').slice(0, -1);
+    const { type, amount } = amountData;
     if (ancestorCodes.length > 0) {
       await queryRunner.manager
         .createQueryBuilder()
         .update(Account)
-        .set({ amount: () => `amount + ${delta}` })
+        .set({ type: () => `${type} + ${amount}` })
         .where({ code: In(ancestorCodes) })
         .andWhere(
           new Brackets((qb) => {
@@ -325,3 +353,21 @@ export class AccountService {
     });
   }
 }
+
+/*
+INventory
+   stock in hand dr
+    Stock Openings cr
+
+Bank
+    opening Bank cr
+    cash in hand dr
+
+customer
+    opening customer cr
+    Trade Receivables dr
+
+vendor
+    Supplier Openings dr
+    Trade Payables cr
+*/

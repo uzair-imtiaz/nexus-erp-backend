@@ -1,14 +1,19 @@
 import { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
-import { Observable, catchError, finalize, from, switchMap, tap } from 'rxjs';
+import {
+  Observable,
+  catchError,
+  finalize,
+  from,
+  of,
+  switchMap,
+  throwError,
+} from 'rxjs';
 import { DataSource } from 'typeorm';
 
 export class TransactionInterceptor implements NestInterceptor {
   constructor(private readonly dataSource: DataSource) {}
 
-  intercept(
-    context: ExecutionContext,
-    next: CallHandler<any>,
-  ): Observable<any> | Promise<Observable<any>> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const queryRunner = this.dataSource.createQueryRunner();
 
     return from(queryRunner.connect()).pipe(
@@ -18,12 +23,17 @@ export class TransactionInterceptor implements NestInterceptor {
         req.entityManager = queryRunner.manager;
         return next.handle();
       }),
-      tap(() => from(queryRunner.commitTransaction())),
-      catchError(async (err) => {
-        await queryRunner.rollbackTransaction();
-        throw err;
+      switchMap((data) =>
+        from(queryRunner.commitTransaction()).pipe(switchMap(() => of(data))),
+      ),
+      catchError((err) =>
+        from(queryRunner.rollbackTransaction()).pipe(
+          switchMap(() => throwError(() => err)),
+        ),
+      ),
+      finalize(() => {
+        return from(queryRunner.release());
       }),
-      finalize(async () => await queryRunner.release()),
     );
   }
 }

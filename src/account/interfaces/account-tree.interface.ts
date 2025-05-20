@@ -5,7 +5,8 @@ export interface AccountTree {
   name: string;
   type: AccountType;
   code: string;
-  amount: number;
+  creditAmount: number;
+  debitAmount: number;
   children: AccountTree[];
   parent_id: string;
 }

@@ -25,6 +25,10 @@ export class CreateContactDto {
   @IsOptional()
   contact_number?: string;
 
+  @IsString()
+  @IsNotEmpty()
+  code: string;
+
   @IsEmail()
   @IsOptional()
   email?: string;

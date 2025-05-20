@@ -8,6 +8,7 @@ import {
   BeforeUpdate,
 } from 'typeorm';
 import { AccountType } from '../interfaces/account-type.enum';
+import { Expose } from 'class-transformer';
 
 @Entity()
 export class Account extends BaseEntity {
@@ -36,11 +37,31 @@ export class Account extends BaseEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   path: string;
 
-  @Column({ type: 'decimal', precision: 18, scale: 2, default: 0 })
-  amount: number;
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    default: 0,
+    name: 'debit_amount',
+  })
+  debitAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    default: 0,
+    name: 'credit_amount',
+  })
+  creditAmount: number;
 
   @Column({ name: 'parent_id', nullable: true })
   parentId: string;
+
+  @Expose()
+  get amount() {
+    return this.debitAmount - this.creditAmount;
+  }
 
   @BeforeInsert()
   @BeforeUpdate()
