@@ -11,11 +11,11 @@ import { CreateAccountDto } from 'src/account/dto/create-account.dto';
 import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { paginate, Paginated } from 'src/common/utils/paginate';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { PARENT_ACCOUNT_IDS } from './contsants/inventory.constants';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
-import { Inventory } from './entity/inventory.entity';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
-import { DataSource } from 'typeorm';
+import { Inventory } from './entity/inventory.entity';
 
 @Injectable()
 export class InventoryService {
@@ -40,6 +40,7 @@ export class InventoryService {
         .andWhere('inventory.tenant.id = :tenantId', { tenantId })
         .getOne();
 
+      console.log('existingInventory', existingInventory);
       if (existingInventory) {
         throw new ConflictException('Inventory code already exists');
       }
@@ -55,17 +56,28 @@ export class InventoryService {
 
       const instance = plainToInstance(Inventory, savedInventory);
 
-      const account: CreateAccountDto = {
+      const creditAccount: CreateAccountDto = {
         name: instance.name,
-        code: instance.code,
+        code: `${instance.code}-0`,
         type: AccountType.SUB_ACCOUNT,
-        parentId: instance.parentId,
+        parentId: PARENT_ACCOUNT_IDS.CREDIT,
         entityId: instance.id,
         entityType: 'inventory',
-        amount: instance.amount,
+        creditAmount: instance.amount,
       };
 
-      await this.accountService.create(account, queryRunner);
+      const debitAccount: CreateAccountDto = {
+        name: instance.name,
+        code: `${instance.code}-1`,
+        type: AccountType.SUB_ACCOUNT,
+        parentId: PARENT_ACCOUNT_IDS.DEBIT,
+        entityId: instance.id,
+        entityType: 'inventory',
+        debitAmount: instance.amount,
+      };
+
+      await this.accountService.create(creditAccount, queryRunner);
+      await this.accountService.create(debitAccount, queryRunner);
 
       await queryRunner.commitTransaction();
       return instance;
@@ -135,13 +147,21 @@ export class InventoryService {
         throw new NotFoundException(`Inventory with ID ${id} not found`);
       }
 
-      const account = await this.accountService.findByEntityIdAndType(
+      const accounts = await this.accountService.findByEntityIdAndType(
         id,
         'inventory',
       );
-      if (account) {
-        await this.accountService.delete(account.id, queryRunner);
+
+      if (!accounts?.length) {
+        throw new NotFoundException(
+          `Accounts not found for inventory with ID ${id}`,
+        );
       }
+      await Promise.all(
+        accounts.map((account) =>
+          this.accountService.delete(account.id, queryRunner),
+        ),
+      );
 
       await this.inventoryRepository.delete(id);
 
@@ -162,7 +182,6 @@ export class InventoryService {
     await queryRunner.startTransaction();
 
     try {
-      // Find the inventory
       const inventory = await queryRunner.manager
         .createQueryBuilder(Inventory, 'inventory')
         .where('inventory.id = :id', { id })
@@ -173,30 +192,41 @@ export class InventoryService {
         throw new NotFoundException(`Inventory with ID ${id} not found`);
       }
 
-      // Update inventory
       Object.assign(inventory, updateInventoryDto);
       const updatedInventory = await queryRunner.manager.save(inventory);
       const instance = plainToInstance(Inventory, updatedInventory);
 
-      // Find and update the corresponding account
-      const account = await this.accountService.findByEntityIdAndType(
+      const accounts = await this.accountService.findByEntityIdAndType(
         id,
         'inventory',
       );
 
-      if (account) {
-        const updateAccountDto = {
-          name: instance.name,
-          code: instance.code,
-          parentId: instance.parentId,
-          amount: instance.amount,
-        };
-        await this.accountService.update(
-          account.id,
-          updateAccountDto,
-          queryRunner,
+      if (!accounts?.length) {
+        throw new NotFoundException(
+          `Accounts not found for inventory with ID ${id}`,
         );
       }
+
+      await Promise.all(
+        accounts.map((account) => {
+          const updateData = {
+            ...account,
+            name: instance.name,
+          };
+
+          // Determine if this is a debit or credit account
+          if (Number(account.debitAmount)) {
+            updateData['debitAmount'] = instance.amount;
+          } else if (Number(account.creditAmount)) {
+            updateData['creditAmount'] = instance.amount;
+          }
+          return this.accountService.update(
+            account.id,
+            updateData,
+            queryRunner,
+          );
+        }),
+      );
 
       await queryRunner.commitTransaction();
       return instance;

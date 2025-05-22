@@ -1,19 +1,18 @@
-import { ConflictException, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import {
-  In,
-  Repository,
-  DataSource,
-  DeepPartial,
-  Brackets,
-  QueryRunner,
-} from 'typeorm';
-import { AccountTree } from './interfaces/account-tree.interface';
-import { Account } from './entity/account.entity';
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { Brackets, DataSource, In, QueryRunner, Repository } from 'typeorm';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
+import { Account } from './entity/account.entity';
+import { AccountTree } from './interfaces/account-tree.interface';
 import { AccountType } from './interfaces/account-type.enum';
-import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { accountColumnNameMap } from './constants/account.constants';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class AccountService {
@@ -75,7 +74,7 @@ export class AccountService {
       }
       await queryRunner.manager.save(account);
 
-      if (account.creditAmount) {
+      if (account.debitAmount) {
         await this.propagateAmount(
           queryRunner,
           account,
@@ -83,7 +82,8 @@ export class AccountService {
           tenantId,
         );
       }
-      if (account.debitAmount) {
+
+      if (account.creditAmount) {
         await this.propagateAmount(
           queryRunner,
           account,
@@ -124,7 +124,8 @@ export class AccountService {
       where: [{ tenant: { id: tenantId } }, { systemGenerated: true }],
       order: { path: 'ASC' },
     });
-    return this.buildTree(accounts);
+    const instance = plainToInstance(Account, accounts);
+    return this.buildTree(instance);
   }
 
   // Update Account with Amount Propagation
@@ -154,7 +155,11 @@ export class AccountService {
             );
           }),
         )
-        .getOneOrFail();
+        .getOne();
+
+      if (!account) {
+        throw new NotFoundException('Account not found');
+      }
 
       const oldCredit = account.creditAmount ?? 0;
       const oldDebit = account.debitAmount ?? 0;
@@ -236,7 +241,6 @@ export class AccountService {
         )
         .getOneOrFail();
 
-      // Get all descendants including self
       const descendants = await queryRunner.manager
         .createQueryBuilder(Account, 'account')
         .where('account.path LIKE :path', { path: `${account.path}%` })
@@ -249,31 +253,42 @@ export class AccountService {
         )
         .getMany();
 
-      // Calculate total amount to subtract
+      // Aggregate amounts to subtract
+      const totalCredit = descendants.reduce(
+        (sum, acc) => sum + (acc.creditAmount ?? 0),
+        0,
+      );
+      const totalDebit = descendants.reduce(
+        (sum, acc) => sum + (acc.debitAmount ?? 0),
+        0,
+      );
       const totalAmount = descendants.reduce((sum, acc) => sum + acc.amount, 0);
 
       // Delete descendants
       await queryRunner.manager.remove(descendants);
 
-      // Update ancestors
       const ancestorCodes = account.path.split('/').slice(0, -1);
-      if (ancestorCodes.length > 0) {
-        await queryRunner.manager
-          .createQueryBuilder(Account, 'account')
-          .update()
-          .set({ amount: () => `"amount" - :totalAmount` })
-          .where('account.code IN (:...codes)', { codes: ancestorCodes })
-          .andWhere(
-            new Brackets((qb) => {
-              qb.where('"account"."tenantId" = :tenantId', {
-                tenantId,
-              }).orWhere('account.system_generated = true');
-            }),
-          )
-          .setParameter('totalAmount', totalAmount)
-          .execute();
-      }
 
+      if (ancestorCodes.length > 0) {
+        // Propagate amounts to ancestors
+        if (totalCredit !== 0) {
+          await this.propagateAmount(
+            queryRunner,
+            account,
+            { type: 'creditAmount', amount: -totalCredit },
+            tenantId,
+          );
+        }
+
+        if (totalDebit !== 0) {
+          await this.propagateAmount(
+            queryRunner,
+            account,
+            { type: 'debitAmount', amount: -totalDebit },
+            tenantId,
+          );
+        }
+      }
       if (ownQueryRunner) await queryRunner.commitTransaction();
     } catch (error) {
       if (ownQueryRunner) await queryRunner.rollbackTransaction();
@@ -290,22 +305,28 @@ export class AccountService {
     amountData: { type: 'debitAmount' | 'creditAmount'; amount: number },
     tenantId: string,
   ) {
-    const ancestorCodes = account.path.split('/').slice(0, -1);
-    const { type, amount } = amountData;
-    if (ancestorCodes.length > 0) {
-      await queryRunner.manager
-        .createQueryBuilder()
-        .update(Account)
-        .set({ type: () => `${type} + ${amount}` })
-        .where({ code: In(ancestorCodes) })
-        .andWhere(
-          new Brackets((qb) => {
-            qb.where('tenant = :tenantId', { tenantId }).orWhere(
-              'system_generated = true',
-            );
-          }),
-        )
-        .execute();
+    try {
+      const ancestorCodes = account.path.split('/').slice(0, -1);
+      const { type, amount } = amountData;
+      if (ancestorCodes.length > 0) {
+        await queryRunner.manager
+          .createQueryBuilder()
+          .update(Account)
+          .set({
+            [type]: () => `"${accountColumnNameMap[type]}" + ${amount}`,
+          })
+          .where({ code: In(ancestorCodes) })
+          .andWhere(
+            new Brackets((qb) => {
+              qb.where('tenant = :tenantId', { tenantId }).orWhere(
+                'system_generated = true',
+              );
+            }),
+          )
+          .execute();
+      }
+    } catch (error) {
+      throw error;
     }
   }
 
@@ -342,9 +363,9 @@ export class AccountService {
   async findByEntityIdAndType(
     entityId: string,
     entityType: string,
-  ): Promise<Account | null> {
+  ): Promise<Account[] | null> {
     const tenantId = this.tenantContextService.getTenantId();
-    return this.accountRepository.findOne({
+    return this.accountRepository.find({
       where: {
         entityId,
         entityType,
@@ -353,21 +374,3 @@ export class AccountService {
     });
   }
 }
-
-/*
-INventory
-   stock in hand dr
-    Stock Openings cr
-
-Bank
-    opening Bank cr
-    cash in hand dr
-
-customer
-    opening customer cr
-    Trade Receivables dr
-
-vendor
-    Supplier Openings dr
-    Trade Payables cr
-*/

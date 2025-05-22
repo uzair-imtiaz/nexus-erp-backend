@@ -37,13 +37,6 @@ export class CreateInventoryDto {
   @IsNotEmpty()
   baseUnit: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @Transform(({ value }) =>
-    value !== null && value !== undefined ? String(value) : value,
-  )
-  parentId: string;
-
   @IsArray()
   @IsOptional()
   multiUnits?: MultiUnitDto[];

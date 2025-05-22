@@ -1,14 +1,7 @@
-import { BaseEntity } from 'src/common/entities/base.entity';
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  BeforeInsert,
-  BeforeUpdate,
-} from 'typeorm';
-import { AccountType } from '../interfaces/account-type.enum';
 import { Expose } from 'class-transformer';
+import { BaseEntity } from 'src/common/entities/base.entity';
+import { BeforeInsert, Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { AccountType } from '../interfaces/account-type.enum';
 
 @Entity()
 export class Account extends BaseEntity {
@@ -55,24 +48,34 @@ export class Account extends BaseEntity {
   })
   creditAmount: number;
 
-  @Column({ name: 'parent_id', nullable: true })
-  parentId: string;
+  @Column({ name: 'path_name', nullable: true })
+  pathName: string;
 
   @Expose()
-  get amount() {
+  getAmount(): number {
     return this.debitAmount - this.creditAmount;
   }
 
+  @Expose()
+  get amount(): number {
+    return this.getAmount();
+  }
+
   @BeforeInsert()
-  @BeforeUpdate()
   async setPath() {
     if (this.parent) {
       if (!this.parent.path) {
         throw new Error('Parent account path is required');
       }
+
       this.path = `${this.parent.path}/${this.code}`;
+
+      this.pathName = this.parent.pathName
+        ? `${this.parent.pathName}/${this.parent.name}`
+        : this.parent.name;
     } else {
       this.path = this.code;
+      this.pathName = '';
     }
   }
 }
