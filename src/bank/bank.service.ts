@@ -107,7 +107,6 @@ export class BankService {
         } else if (Number(account.creditAmount)) {
           updateData['creditAmount'] = instance.currentBalance;
         }
-        console.log('updateData', updateData);
         return this.accountService.update(account.id, updateData, queryRunner);
       }),
     );
