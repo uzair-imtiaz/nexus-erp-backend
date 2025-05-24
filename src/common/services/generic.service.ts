@@ -1,12 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { paginate, Paginated } from 'src/common/utils/paginate';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
-import { DeepPartial, ObjectLiteral, Repository } from 'typeorm';
+import { DeepPartial, EntityManager, ObjectLiteral, Repository } from 'typeorm';
+
+type WithCode = { code: string };
 
 @Injectable()
 export class GenericService<
   T extends ObjectLiteral,
-  CreateDto extends DeepPartial<T>,
+  CreateDto extends DeepPartial<T> & Partial<WithCode>,
   UpdateDto extends DeepPartial<T>,
 > {
   protected readonly allowedFilters: string[] = ['name'];
@@ -20,16 +26,34 @@ export class GenericService<
     this.entityName = entityName.toLowerCase();
   }
 
-  async create(data: CreateDto): Promise<T> {
+  async create(data: CreateDto, manager?: EntityManager): Promise<T> {
+    const repo = manager
+      ? manager.getRepository(this.repository.target)
+      : this.repository;
     const tenantId = this.tenantContextService.getTenantId();
-    const entity = this.repository.create({
+    if ('code' in data && data.code) {
+      const existing = await this.repository.findOne({
+        where: {
+          code: data.code,
+          tenant: { id: tenantId },
+        } as any,
+      });
+
+      if (existing) {
+        throw new ConflictException(
+          `${this.entityName} with code '${data.code}' already exists.`,
+        );
+      }
+    }
+    const entity = repo.create({
       ...data,
       tenant: { id: tenantId },
     } as DeepPartial<T>);
-    return await this.repository.save(entity);
+    const saved = await repo.save(entity);
+    await this.afterCreate(saved, manager);
+    return saved;
   }
 
-  //TODO: need to check tenant.id
   async findAll(filters: Record<string, any>): Promise<Paginated<T>> {
     const tenantId = this.tenantContextService.getTenantId();
     const queryBuilder = this.repository
@@ -61,18 +85,29 @@ export class GenericService<
     return existingContact;
   }
 
-  async update(id: string, data: UpdateDto) {
+  async update(id: string, data: UpdateDto, manager?: EntityManager) {
     const existingContact = await this.findOne(id);
     const updated = this.repository.merge(
       existingContact,
       data as DeepPartial<T>,
     );
-    return await this.repository.save(updated);
+    const saved = await this.repository.save(updated);
+    await this.afterUpdate(saved, manager);
+    return saved;
   }
 
-  async remove(id: string) {
+  async remove(id: string, manager?: EntityManager) {
     await this.findOne(id);
     const deleted = await this.repository.delete(id);
     return deleted;
   }
+
+  protected async afterCreate(
+    entity: T,
+    manager?: EntityManager,
+  ): Promise<void> {}
+  protected async afterUpdate(
+    entity: T,
+    manager?: EntityManager,
+  ): Promise<void> {}
 }

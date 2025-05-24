@@ -1,12 +1,6 @@
+import { Expose } from 'class-transformer';
 import { BaseEntity } from 'src/common/entities/base.entity';
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  BeforeInsert,
-  BeforeUpdate,
-} from 'typeorm';
+import { BeforeInsert, Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { AccountType } from '../interfaces/account-type.enum';
 
 @Entity()
@@ -36,23 +30,52 @@ export class Account extends BaseEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   path: string;
 
-  @Column({ type: 'decimal', precision: 18, scale: 2, default: 0 })
-  amount: number;
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    default: 0,
+    name: 'debit_amount',
+  })
+  debitAmount: number;
 
-  @Column({ name: 'parent_id', nullable: true })
-  parentId: string;
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    default: 0,
+    name: 'credit_amount',
+  })
+  creditAmount: number;
+
+  @Column({ name: 'path_name', nullable: true })
+  pathName: string;
+
+  @Expose()
+  getAmount(): number {
+    return this.debitAmount - this.creditAmount;
+  }
+
+  @Expose()
+  get amount(): number {
+    return this.getAmount();
+  }
 
   @BeforeInsert()
-  @BeforeUpdate()
   async setPath() {
-    console.log('this.parentAccount', this);
     if (this.parent) {
       if (!this.parent.path) {
         throw new Error('Parent account path is required');
       }
+
       this.path = `${this.parent.path}/${this.code}`;
+
+      this.pathName = this.parent.pathName
+        ? `${this.parent.pathName}/${this.parent.name}`
+        : this.parent.name;
     } else {
       this.path = this.code;
+      this.pathName = '';
     }
   }
 }

@@ -14,6 +14,9 @@ export class ContactBaseEntity extends BaseEntity {
   @Column()
   contact_number: string;
 
+  @Column({ unique: true })
+  code: string;
+
   @Column()
   email: string;
 

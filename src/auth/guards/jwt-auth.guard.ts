@@ -1,55 +1,48 @@
 import {
-  Injectable,
-  CanActivate,
   ExecutionContext,
+  Injectable,
   UnauthorizedException,
-  Inject,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import * as jwt from 'jsonwebtoken';
 import { AuthService } from '../auth.service';
+import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
-  constructor(@Inject(AuthService) private readonly authService: AuthService) {
+export class JwtAuthGuard extends AuthGuard('jwt') {
+  constructor(private readonly authService: AuthService) {
     super();
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
-    const res = context.switchToHttp().getResponse();
-
-    const accessToken = req.headers['authorization']?.split(' ')[1];
     const refreshToken = req.cookies?.['refreshToken'];
 
-    if (!accessToken) {
-      return super.canActivate(context) as Promise<boolean>;
-    }
-
     try {
-      jwt.verify(accessToken, process.env.JWT_SECRET!);
+      const result = await super.canActivate(context);
+      return result as boolean;
     } catch (err) {
-      if (refreshToken) {
-        try {
-          const payload =
-            await this.authService.validateRefreshToken(refreshToken);
-          const newAccessToken = this.authService.generateAccessToken(payload);
+      if (!refreshToken) throw new UnauthorizedException('Login required');
 
-          res.cookie('accessToken', newAccessToken, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'strict',
-          });
+      // Validate refresh token and generate new access token
+      const payload = await this.authService.validateRefreshToken(refreshToken);
+      const newAccessToken = this.authService.generateAccessToken(payload);
 
-          req.headers['authorization'] = `Bearer ${newAccessToken}`;
-        } catch (err) {
-          throw new UnauthorizedException('Invalid refresh token');
-        }
-      } else {
-        throw new UnauthorizedException('Invalid access token');
-      }
+      // Update request headers for subsequent guards/controllers
+      req.headers.authorization = `Bearer ${newAccessToken}`;
+
+      // Optionally set new access token in response
+      const res = context.switchToHttp().getResponse();
+      res.cookie('accessToken', newAccessToken, {
+        secure: true,
+        sameSite: 'strict',
+        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 1),
+      });
+
+      return true; // Allow the request to proceed
     }
+  }
 
-    return super.canActivate(context) as Promise<boolean>;
+  handleRequest(err, user, info) {
+    if (err || !user) throw err || new UnauthorizedException();
+    return user;
   }
 }

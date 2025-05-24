@@ -1,11 +1,13 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
-import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
+import { NestFactory } from '@nestjs/core';
 import * as CookieParser from 'cookie-parser';
-import * as session from 'express-session';
 import { NextFunction, Request, Response } from 'express';
+import * as session from 'express-session';
+import { AppModule } from './app.module';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { seedAccounts } from './account/seeds';
+import { DataSource } from 'typeorm';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -32,6 +34,11 @@ async function bootstrap() {
       },
     }),
   );
+
+  // if (process.env.NODE_ENV === 'development') {
+  //   const dataSource = app.get(DataSource);
+  //   await seedAccounts(dataSource);
+  // }
 
   app.useGlobalPipes(
     new ValidationPipe({

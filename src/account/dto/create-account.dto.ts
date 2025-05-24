@@ -29,7 +29,11 @@ export class CreateAccountDto {
 
   @IsNumber()
   @IsOptional()
-  amount?: number;
+  debitAmount?: number;
+
+  @IsNumber()
+  @IsOptional()
+  creditAmount?: number;
 
   @ValidateIf((o) => o.type === AccountType.SUB_ACCOUNT)
   @IsNotEmpty()
@@ -40,11 +44,11 @@ export class CreateAccountDto {
   entityId?: string;
 
   @IsOptional()
-  @IsString()
+  @IsNumber()
   @Transform(({ value }) =>
-    value !== null && value !== undefined ? String(value) : value,
+    value !== null && value !== undefined ? Number(value) : value,
   )
-  parentId?: string;
+  parentId?: number;
 
   @IsOptional()
   @IsBoolean()
