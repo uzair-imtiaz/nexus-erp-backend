@@ -1,11 +1,8 @@
-import { IsString, IsDateString, IsNumber } from 'class-validator';
+import { IsString, IsDateString, IsNumber, IsNotEmpty } from 'class-validator';
 
 export class CreateBankDto {
   @IsString()
-  bankCode: string;
-
-  @IsString()
-  bankName: string;
+  name: string;
 
   @IsString()
   accountNumber: string;
@@ -15,6 +12,10 @@ export class CreateBankDto {
 
   @IsNumber()
   currentBalance: number;
+
+  @IsString()
+  @IsNotEmpty()
+  code: string;
 
   @IsDateString()
   openingDate: string;

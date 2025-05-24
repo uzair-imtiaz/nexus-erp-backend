@@ -4,16 +4,16 @@ import { Column, CreateDateColumn, Entity, UpdateDateColumn } from 'typeorm';
 @Entity()
 export class Bank extends BaseEntity {
   @Column()
-  bankCode: string;
-
-  @Column()
-  bankName: string;
+  name: string;
 
   @Column()
   accountNumber: string;
 
   @Column()
   iban: string;
+
+  @Column({ unique: true })
+  code: string;
 
   @Column({
     name: 'base_rate',
