@@ -1,6 +1,6 @@
 import { Request } from 'express';
-import { EntityManager } from 'typeorm';
+import { QueryRunner } from 'typeorm';
 
 export interface TransactionRequest extends Request {
-  entityManager: EntityManager;
+  queryRunner: QueryRunner;
 }

@@ -40,7 +40,6 @@ export class InventoryService {
         .andWhere('inventory.tenant.id = :tenantId', { tenantId })
         .getOne();
 
-      console.log('existingInventory', existingInventory);
       if (existingInventory) {
         throw new ConflictException('Inventory code already exists');
       }

@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  UseGuards,
 } from '@nestjs/common';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
 import { AccountService } from './account.service';
@@ -14,8 +15,10 @@ import { UpdateAccountDto } from './dto/update-account.dto';
 import { Account } from './entity/account.entity';
 import { AccountTree } from './interfaces/account-tree.interface';
 import { AccountType } from './interfaces/account-type.enum';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @Controller('accounts')
+@UseGuards(JwtAuthGuard)
 export class AccountController {
   constructor(private readonly AccountService: AccountService) {}
 

@@ -1,4 +1,9 @@
-import { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
+import {
+  CallHandler,
+  ExecutionContext,
+  Injectable,
+  NestInterceptor,
+} from '@nestjs/common';
 import {
   Observable,
   catchError,
@@ -10,6 +15,7 @@ import {
 } from 'rxjs';
 import { DataSource } from 'typeorm';
 
+@Injectable()
 export class TransactionInterceptor implements NestInterceptor {
   constructor(private readonly dataSource: DataSource) {}
 
@@ -20,7 +26,7 @@ export class TransactionInterceptor implements NestInterceptor {
       switchMap(() => from(queryRunner.startTransaction())),
       switchMap(() => {
         const req = context.switchToHttp().getRequest();
-        req.entityManager = queryRunner.manager;
+        req.queryRunner = queryRunner;
         return next.handle();
       }),
       switchMap((data) =>
