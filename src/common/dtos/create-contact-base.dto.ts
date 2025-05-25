@@ -15,7 +15,7 @@ export class CreateContactDto {
 
   @IsString()
   @IsNotEmpty()
-  person_name: string;
+  personName: string;
 
   @IsString()
   @IsOptional()
@@ -23,7 +23,7 @@ export class CreateContactDto {
 
   @IsString()
   @IsOptional()
-  contact_number?: string;
+  contactNumber?: string;
 
   @IsString()
   @IsNotEmpty()

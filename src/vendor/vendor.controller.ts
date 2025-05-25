@@ -15,8 +15,10 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { VendorFilterDto } from './dto/vendor-filter.dto';
+import { TenantGuard } from 'src/tenant/guards/tenant.guard';
 
 @Controller('vendor')
+@UseGuards(TenantGuard)
 @UseGuards(JwtAuthGuard)
 export class VendorController {
   constructor(private readonly vendorService: VendorService) {}
@@ -26,7 +28,7 @@ export class VendorController {
     success: true,
     message: 'Vendor created successfully',
   })
-  async create(createVendorDto: CreateVendorDto) {
+  async create(@Body() createVendorDto: CreateVendorDto) {
     return await this.vendorService.create(createVendorDto);
   }
 

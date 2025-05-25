@@ -1,4 +1,4 @@
 export const PARENT_ACCOUNT_IDS = {
-  CREDIT: '28',
-  DEBIT: '29',
+  CREDIT: 28,
+  DEBIT: 29,
 };

@@ -5,19 +5,19 @@ export class ContactBaseEntity extends BaseEntity {
   @Column({ nullable: false })
   name: string;
 
-  @Column({ nullable: false })
-  person_name: string;
+  @Column({ nullable: false, name: 'person_name' })
+  personName: string;
 
-  @Column()
+  @Column({ nullable: true })
   address: string;
 
-  @Column()
-  contact_number: string;
+  @Column({ nullable: true, name: 'contact_number' })
+  contactNumber: string;
 
   @Column({ unique: true })
   code: string;
 
-  @Column()
+  @Column({ nullable: true })
   email: string;
 
   @Column({
@@ -32,15 +32,15 @@ export class ContactBaseEntity extends BaseEntity {
   })
   openingBalance: number;
 
-  @Column()
+  @Column({ name: 'opening_balance_date', type: 'date' })
   openingBalanceDate: Date;
 
   @Column()
   status: boolean;
 
-  @CreateDateColumn()
-  created_at: Date;
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 
-  @UpdateDateColumn()
-  updated_at: Date;
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
 }
