@@ -62,7 +62,7 @@ export class CustomerController {
   }
 
   @UseInterceptors(TransactionInterceptor)
-  @Put('id')
+  @Put(':id')
   @ResponseMetadata({
     message: 'Customer updated successfully',
     success: true,
