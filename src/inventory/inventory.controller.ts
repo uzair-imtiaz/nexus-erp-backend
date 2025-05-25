@@ -7,6 +7,7 @@ import {
   Post,
   Put,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
 import { UuidValidationPipe } from 'src/common/pipes/UuidValidationPipe';
@@ -15,8 +16,10 @@ import { InventoryFilterDto } from './dto/inventory-filter.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { Inventory } from './entity/inventory.entity';
 import { InventoryService } from './inventory.service';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @Controller('inventory')
+@UseGuards(JwtAuthGuard)
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 

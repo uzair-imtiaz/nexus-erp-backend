@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { paginate, Paginated } from 'src/common/utils/paginate';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
-import { DeepPartial, EntityManager, ObjectLiteral, Repository } from 'typeorm';
+import { DeepPartial, ObjectLiteral, QueryRunner, Repository } from 'typeorm';
 
 type WithCode = { code: string };
 
@@ -26,9 +26,9 @@ export class GenericService<
     this.entityName = entityName.toLowerCase();
   }
 
-  async create(data: CreateDto, manager?: EntityManager): Promise<T> {
-    const repo = manager
-      ? manager.getRepository(this.repository.target)
+  async create(data: CreateDto, runner?: QueryRunner): Promise<T> {
+    const repo = runner
+      ? runner.manager.getRepository(this.repository.target)
       : this.repository;
     const tenantId = this.tenantContextService.getTenantId();
     if ('code' in data && data.code) {
@@ -50,7 +50,7 @@ export class GenericService<
       tenant: { id: tenantId },
     } as DeepPartial<T>);
     const saved = await repo.save(entity);
-    await this.afterCreate(saved, manager);
+    await this.afterCreate(saved, runner);
     return saved;
   }
 
@@ -58,7 +58,7 @@ export class GenericService<
     const tenantId = this.tenantContextService.getTenantId();
     const queryBuilder = this.repository
       .createQueryBuilder(this.entityName)
-      .where('${this.entityName}.tenant.id = :tenantId', { tenantId });
+      .where(`${this.entityName}.tenant.id = :tenantId`, { tenantId });
 
     const { page, limit, ...filterFields } = filters;
     const ALLOWED_FILTERS = ['name'];
@@ -85,29 +85,29 @@ export class GenericService<
     return existingContact;
   }
 
-  async update(id: string, data: UpdateDto, manager?: EntityManager) {
+  async update(id: string, data: UpdateDto, runner?: QueryRunner) {
     const existingContact = await this.findOne(id);
     const updated = this.repository.merge(
       existingContact,
       data as DeepPartial<T>,
     );
     const saved = await this.repository.save(updated);
-    await this.afterUpdate(saved, manager);
+    await this.afterUpdate(saved, runner);
     return saved;
   }
 
-  async remove(id: string, manager?: EntityManager) {
-    await this.findOne(id);
-    const deleted = await this.repository.delete(id);
+  async remove(id: string, runner?: QueryRunner) {
+    const entity = await this.findOne(id);
+    if (!entity) {
+      throw new NotFoundException(`${this.entityName} not found`);
+    }
+
+    const deleted = await this.repository.delete(entity?.id);
+    await this.afterDelete(entity, runner);
     return deleted;
   }
 
-  protected async afterCreate(
-    entity: T,
-    manager?: EntityManager,
-  ): Promise<void> {}
-  protected async afterUpdate(
-    entity: T,
-    manager?: EntityManager,
-  ): Promise<void> {}
+  protected async afterCreate(entity: T, runner?: QueryRunner): Promise<void> {}
+  protected async afterUpdate(entity: T, runner?: QueryRunner): Promise<void> {}
+  protected async afterDelete(entity: T, runner?: QueryRunner): Promise<void> {}
 }
