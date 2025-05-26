@@ -14,7 +14,14 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   const corsOptions: CorsOptions = {
-    origin: 'http://localhost:5173',
+    origin: (origin, callback) => {
+      const allowedOrigins = ['http://localhost:5173', 'http://localhost'];
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   };
   app.enableCors(corsOptions);
