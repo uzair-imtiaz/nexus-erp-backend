@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  app:
+  backend:
     container_name: nexus-erp-backend
     build:
       context: .
@@ -11,3 +11,9 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    networks:
+      - nexus-network
+
+networks:
+  nexus-network:
+    name: nexus-network

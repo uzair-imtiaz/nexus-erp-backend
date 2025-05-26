@@ -6,24 +6,33 @@ import { NextFunction, Request, Response } from 'express';
 import * as session from 'express-session';
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { seedAccounts } from './account/seeds';
-import { DataSource } from 'typeorm';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
 
+  const allowedOrigins = [
+    'http://localhost:80',
+    'http://localhost:5173',
+    'http://app:80',
+    'http://localhost'
+  ];
+
   const corsOptions: CorsOptions = {
     origin: (origin, callback) => {
-      const allowedOrigins = ['http://localhost:5173', 'http://localhost'];
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
       }
     },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
     credentials: true,
   };
+
   app.enableCors(corsOptions);
   app.use(CookieParser());
   app.use(
