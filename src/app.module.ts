@@ -18,7 +18,11 @@ import { CustomerModule } from './customer/customer.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [dbConfig] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [dbConfig],
+      envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
+    }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
