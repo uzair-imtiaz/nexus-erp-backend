@@ -15,6 +15,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { TenantGuard } from './tenant/guards/tenant.guard';
 import { VendorModule } from './vendor/vendor.module';
 import { CustomerModule } from './customer/customer.module';
+import { ExpenseModule } from './expense/expense.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { CustomerModule } from './customer/customer.module';
     TenantModule,
     VendorModule,
     CustomerModule,
+    ExpenseModule,
   ],
   controllers: [AppController],
   providers: [
