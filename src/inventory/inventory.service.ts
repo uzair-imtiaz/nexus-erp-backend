@@ -57,7 +57,7 @@ export class InventoryService {
 
       const creditAccount: CreateAccountDto = {
         name: instance.name,
-        code: `${instance.code}-0`,
+        code: `${instance.code}-cr`,
         type: AccountType.SUB_ACCOUNT,
         parentId: PARENT_ACCOUNT_IDS.CREDIT,
         entityId: instance.id,
@@ -67,7 +67,7 @@ export class InventoryService {
 
       const debitAccount: CreateAccountDto = {
         name: instance.name,
-        code: `${instance.code}-1`,
+        code: `${instance.code}-dr`,
         type: AccountType.SUB_ACCOUNT,
         parentId: PARENT_ACCOUNT_IDS.DEBIT,
         entityId: instance.id,

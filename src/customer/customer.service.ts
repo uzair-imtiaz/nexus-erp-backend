@@ -33,7 +33,7 @@ export class CustomerService extends GenericService<
   ): Promise<void> {
     const creditAccount: CreateAccountDto = {
       name: entity.name,
-      code: `${entity.code}-0`,
+      code: `${entity.code}-cr`,
       type: AccountType.SUB_ACCOUNT,
       parentId: PARENT_ACCOUNT_IDS.CREDIT,
       entityId: entity.id,
@@ -43,7 +43,7 @@ export class CustomerService extends GenericService<
 
     const debitAccount: CreateAccountDto = {
       name: entity.name,
-      code: `${entity.code}-1`,
+      code: `${entity.code}-dr`,
       type: AccountType.SUB_ACCOUNT,
       parentId: PARENT_ACCOUNT_IDS.DEBIT,
       entityId: entity.id,
