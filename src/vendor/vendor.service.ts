@@ -19,12 +19,17 @@ export class VendorService extends GenericService<
   UpdateContactDto
 > {
   constructor(
-    @InjectRepository(Vendor) vendorRepository: Repository<Vendor>,
+    @InjectRepository(Vendor) private vendorRepository: Repository<Vendor>,
     tenantContextService: TenantContextService,
     private readonly accountService: AccountService,
   ) {
     super(vendorRepository, tenantContextService, 'vendor');
   }
+
+  async incrementBalance(id: string, amount: number) {
+    await this.vendorRepository.increment({ id }, 'openingBalance', amount);
+  }
+
   protected async afterCreate(
     entity: Vendor,
     runner?: QueryRunner,

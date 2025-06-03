@@ -20,11 +20,15 @@ export class CustomerService extends GenericService<
 > {
   constructor(
     @InjectRepository(Customer)
-    customerRepository: Repository<Customer>,
+    private customerRepository: Repository<Customer>,
     tenantContextService: TenantContextService,
     private readonly accountService: AccountService,
   ) {
     super(customerRepository, tenantContextService, 'customer');
+  }
+
+  async incrementBalance(id: string, amount: number) {
+    await this.customerRepository.increment({ id }, 'openingBalance', amount);
   }
 
   protected async afterCreate(

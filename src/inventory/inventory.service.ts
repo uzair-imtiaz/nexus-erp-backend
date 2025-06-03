@@ -236,4 +236,8 @@ export class InventoryService {
       await queryRunner.release();
     }
   }
+
+  async incrementBalance(id: string, amount: number) {
+    await this.inventoryRepository.increment({ id }, 'balance', amount);
+  }
 }

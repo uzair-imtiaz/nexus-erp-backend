@@ -16,6 +16,8 @@ import { TenantGuard } from './tenant/guards/tenant.guard';
 import { VendorModule } from './vendor/vendor.module';
 import { CustomerModule } from './customer/customer.module';
 import { ExpenseModule } from './expense/expense.module';
+import { JournalModule } from './journal/journal.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -40,6 +42,8 @@ import { ExpenseModule } from './expense/expense.module';
     VendorModule,
     CustomerModule,
     ExpenseModule,
+    JournalModule,
+    CommonModule,
   ],
   controllers: [AppController],
   providers: [
