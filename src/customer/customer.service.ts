@@ -11,6 +11,7 @@ import { CreateAccountDto } from 'src/account/dto/create-account.dto';
 import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { PARENT_ACCOUNT_IDS } from './constants/cutsomer.constants';
 import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
+import { EntityType } from 'src/common/enums/entity-type.enum';
 
 @Injectable()
 export class CustomerService extends GenericService<
@@ -41,7 +42,7 @@ export class CustomerService extends GenericService<
       type: AccountType.SUB_ACCOUNT,
       parentId: PARENT_ACCOUNT_IDS.CREDIT,
       entityId: entity.id,
-      entityType: 'customer',
+      entityType: EntityType.CUSTOMER,
       creditAmount: entity.openingBalance,
     };
 
@@ -51,7 +52,7 @@ export class CustomerService extends GenericService<
       type: AccountType.SUB_ACCOUNT,
       parentId: PARENT_ACCOUNT_IDS.DEBIT,
       entityId: entity.id,
-      entityType: 'customer',
+      entityType: EntityType.CUSTOMER,
       debitAmount: entity.openingBalance,
     };
     await this.accountService.create(creditAccount, runner);
@@ -77,6 +78,7 @@ export class CustomerService extends GenericService<
       accounts.map((account) => {
         const data: UpdateAccountDto = {
           ...account,
+          entityType: EntityType.CUSTOMER,
           name: entity.name,
         };
         if (Number(account.debitAmount)) {

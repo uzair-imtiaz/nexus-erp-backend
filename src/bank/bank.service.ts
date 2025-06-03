@@ -2,10 +2,9 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  UseInterceptors,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, QueryRunner, Repository } from 'typeorm';
+import { QueryRunner, Repository } from 'typeorm';
 import { Bank } from './entity/bank.entity';
 import { UpdateBankDto } from './dto/update-bank.dto';
 import { CreateBankDto } from './dto/create-bank.dto';
@@ -19,8 +18,8 @@ import {
   PARENT_ACCOUNT_IDS,
 } from './constants/bank.constants';
 import { AccountService } from 'src/account/account.service';
-import { TransactionInterceptor } from 'src/common/interceptors/transaction.interceptor';
 import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
+import { EntityType } from 'src/common/enums/entity-type.enum';
 
 @Injectable()
 export class BankService {
@@ -97,9 +96,10 @@ export class BankService {
 
     await Promise.all(
       accounts.map((account) => {
-        const { code, ...rest } = account;
+        const { code: _, ...rest } = account;
         const updateData: UpdateAccountDto = {
           ...rest,
+          entityType: EntityType.BANK,
           name: instance.name,
         };
         if (Number(account.debitAmount)) {
@@ -127,7 +127,7 @@ export class BankService {
 
     const accounts = await this.accountService.findByEntityIdAndType(
       id,
-      'bank',
+      EntityType.BANK,
     );
     if (!accounts?.length) {
       throw new NotFoundException(`Accounts not found for bank with ID ${id}`);
@@ -171,7 +171,7 @@ export class BankService {
       type: AccountType.SUB_ACCOUNT,
       parentId: PARENT_ACCOUNT_IDS.CREDIT,
       entityId: instance.id,
-      entityType: 'bank',
+      entityType: EntityType.BANK,
       creditAmount: instance.currentBalance,
     };
 
@@ -181,7 +181,7 @@ export class BankService {
       type: AccountType.SUB_ACCOUNT,
       parentId: PARENT_ACCOUNT_IDS.DEBIT,
       entityId: instance.id,
-      entityType: 'bank',
+      entityType: EntityType.BANK,
       debitAmount: instance.currentBalance,
     };
 

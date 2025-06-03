@@ -16,6 +16,8 @@ import { PARENT_ACCOUNT_IDS } from './contsants/inventory.constants';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { Inventory } from './entity/inventory.entity';
+import { EntityType } from 'src/common/enums/entity-type.enum';
+import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
 
 @Injectable()
 export class InventoryService {
@@ -61,7 +63,7 @@ export class InventoryService {
         type: AccountType.SUB_ACCOUNT,
         parentId: PARENT_ACCOUNT_IDS.CREDIT,
         entityId: instance.id,
-        entityType: 'inventory',
+        entityType: EntityType.INVENTORY,
         creditAmount: instance.amount,
       };
 
@@ -71,7 +73,7 @@ export class InventoryService {
         type: AccountType.SUB_ACCOUNT,
         parentId: PARENT_ACCOUNT_IDS.DEBIT,
         entityId: instance.id,
-        entityType: 'inventory',
+        entityType: EntityType.INVENTORY,
         debitAmount: instance.amount,
       };
 
@@ -208,9 +210,10 @@ export class InventoryService {
 
       await Promise.all(
         accounts.map((account) => {
-          const updateData = {
+          const updateData: UpdateAccountDto = {
             ...account,
             name: instance.name,
+            entityType: EntityType.INVENTORY,
           };
 
           // Determine if this is a debit or credit account
