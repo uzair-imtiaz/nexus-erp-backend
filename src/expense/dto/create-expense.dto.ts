@@ -7,11 +7,14 @@ import {
   ValidateNested,
   ArrayMinSize,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class ExpenseDetailDto {
   @IsNotEmpty()
   @IsString()
+  @Transform(({ value }) =>
+    value !== null && value !== undefined ? String(value) : value,
+  )
   nominalAccountId: string;
 
   @IsNotEmpty()
@@ -26,6 +29,9 @@ export class ExpenseDetailDto {
 export class CreateExpenseDto {
   @IsNotEmpty()
   @IsString()
+  @Transform(({ value }) =>
+    value !== null && value !== undefined ? String(value) : value,
+  )
   bankId: string;
 
   @IsArray()

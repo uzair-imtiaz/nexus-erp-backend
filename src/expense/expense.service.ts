@@ -18,6 +18,8 @@ import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
 import { Account } from 'src/account/entity/account.entity';
 import { updateExpenseDto } from './dto/update-expense.dto';
 import { Bank } from 'src/bank/entity/bank.entity';
+import { EntityServiceManager } from 'src/common/services/entity-service-manager.service';
+import { EntityType } from 'src/common/enums/entity-type.enum';
 
 @Injectable()
 export class ExpenseService {
@@ -28,6 +30,7 @@ export class ExpenseService {
     private tenantContextService: TenantContextService,
     private bankService: BankService,
     private accountService: AccountService,
+    private readonly entityServiceManager: EntityServiceManager,
   ) {}
 
   async create(createExpenseDto: CreateExpenseDto, queryRunner: QueryRunner) {
@@ -54,6 +57,7 @@ export class ExpenseService {
     // Create expense details
     const details = createExpenseDto.details.map((detail) => {
       const expenseDetail = this.expenseDetailRepository.create({
+        nominalAccount: { id: detail.nominalAccountId },
         expense: savedExpense,
         amount: detail.amount,
         description: detail.description,
@@ -81,13 +85,25 @@ export class ExpenseService {
         );
       }
 
+      if (account.pathName.includes('General Reserves')) {
+        throw new BadRequestException(
+          'General Reserves account cannot be used for expenses',
+        );
+      }
+
       const accountUpdateDto: UpdateAccountDto = {
-        debitAmount: account.debitAmount + detail.amount,
+        debitAmount: Number(account.debitAmount) + Number(detail.amount),
       };
       await this.accountService.update(
         account.id,
         accountUpdateDto,
         queryRunner,
+      );
+
+      await this.entityServiceManager.incrementEntityBalance(
+        account.entityType as EntityType,
+        account.entityId,
+        detail.amount,
       );
     }
 
@@ -206,7 +222,7 @@ export class ExpenseService {
       }
 
       const newBankUpdateDto: UpdateBankDto = {
-        currentBalance: newBank.currentBalance - newTotalAmount,
+        currentBalance: Number(newBank.currentBalance) - Number(newTotalAmount),
       };
       await this.bankService.update(newBank.id, newBankUpdateDto, queryRunner);
 
@@ -245,6 +261,12 @@ export class ExpenseService {
           );
         }
 
+        if (account.pathName.includes('General Reserves')) {
+          throw new BadRequestException(
+            'General Reserves cannot be debited or credited',
+          );
+        }
+
         const accountUpdateDto: UpdateAccountDto = {
           debitAmount: account.debitAmount + diff,
         };
@@ -252,6 +274,12 @@ export class ExpenseService {
           account.id,
           accountUpdateDto,
           queryRunner,
+        );
+
+        await this.entityServiceManager.incrementEntityBalance(
+          account.entityType as EntityType,
+          account.entityId,
+          diff,
         );
       }
     }
@@ -296,6 +324,12 @@ export class ExpenseService {
       });
 
       if (account) {
+        if (account.pathName.includes('General Reserves')) {
+          throw new BadRequestException(
+            'General Reserves cannot be debited or credited',
+          );
+        }
+
         const accountUpdateDto: UpdateAccountDto = {
           debitAmount: account.debitAmount - detail.amount,
         };
@@ -303,6 +337,12 @@ export class ExpenseService {
           account.id,
           accountUpdateDto,
           queryRunner,
+        );
+
+        await this.entityServiceManager.incrementEntityBalance(
+          account.entityType as EntityType,
+          account.entityId,
+          -detail.amount,
         );
       }
     }

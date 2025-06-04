@@ -7,6 +7,7 @@ import { TenantModule } from 'src/tenant/tenant.module';
 import { BankModule } from 'src/bank/bank.module';
 import { AccountModule } from 'src/account/account.module';
 import { ExpenseDetail } from './entity/expense-detail.entity';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ExpenseDetail } from './entity/expense-detail.entity';
     TenantModule,
     BankModule,
     AccountModule,
+    CommonModule,
   ],
   controllers: [ExpenseController],
   providers: [ExpenseService],

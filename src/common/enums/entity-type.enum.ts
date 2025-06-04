@@ -1,6 +1,6 @@
 export enum EntityType {
-  Vendor = 'vendor',
-  Customer = 'customer',
-  Inventory = 'inventory',
-  Bank = 'bank',
+  VENDOR = 'vendor',
+  CUSTOMER = 'customer',
+  INVENTORY = 'inventory',
+  BANK = 'bank',
 }
