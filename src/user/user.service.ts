@@ -54,9 +54,8 @@ export class UsersService {
   }
 
   async findOneByEmail(email: string, select?: (keyof User)[]) {
-    const tenantId = this.tenantContextService.getTenantId();
     const user = await this.userRepository.findOne({
-      where: { email, tenant: { id: tenantId } },
+      where: { email },
       select,
       relations: ['tenant'],
     });

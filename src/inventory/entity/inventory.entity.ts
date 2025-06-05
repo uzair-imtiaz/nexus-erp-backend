@@ -31,6 +31,18 @@ export class Inventory extends BaseEntity {
   @Column()
   baseUnit: string;
 
+  @Column({
+    nullable: false,
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  amount: number;
+
   @Column({ name: 'parent_id', nullable: true })
   parentId: string;
 
@@ -42,14 +54,4 @@ export class Inventory extends BaseEntity {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
-
-  @Expose()
-  getAmount() {
-    return this.quantity * this.baseRate;
-  }
-
-  @Expose()
-  get amount() {
-    return this.getAmount();
-  }
 }

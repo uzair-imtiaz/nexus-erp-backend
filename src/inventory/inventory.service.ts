@@ -47,6 +47,7 @@ export class InventoryService {
       }
       const inventory = this.inventoryRepository.create({
         ...createInventoryDto,
+        amount: createInventoryDto.baseRate * createInventoryDto.quantity,
         tenant: { id: tenantId },
       });
 
@@ -193,6 +194,10 @@ export class InventoryService {
         throw new NotFoundException(`Inventory with ID ${id} not found`);
       }
 
+      updateInventoryDto.amount =
+        updateInventoryDto.amount ??
+        updateInventoryDto.baseRate! * updateInventoryDto.quantity!;
+
       Object.assign(inventory, updateInventoryDto);
       const updatedInventory = await queryRunner.manager.save(inventory);
       const instance = plainToInstance(Inventory, updatedInventory);
@@ -241,6 +246,6 @@ export class InventoryService {
   }
 
   async incrementBalance(id: string, amount: number) {
-    await this.inventoryRepository.increment({ id }, 'balance', amount);
+    await this.inventoryRepository.increment({ id }, 'amount', amount);
   }
 }
