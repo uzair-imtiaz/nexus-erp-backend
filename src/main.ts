@@ -6,6 +6,8 @@ import { NextFunction, Request, Response } from 'express';
 import * as session from 'express-session';
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { DataSource } from 'typeorm';
+import { seedAccounts } from './account/seeds';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -73,6 +75,9 @@ async function bootstrap() {
       exceptionFactory: (errors) => {
         logger.error(`Validation failed: ${JSON.stringify(errors)}`);
         return errors;
+      },
+      transformOptions: {
+        enableImplicitConversion: true,
       },
     }),
   );

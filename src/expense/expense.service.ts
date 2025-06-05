@@ -68,11 +68,36 @@ export class ExpenseService {
 
     await queryRunner.manager.save(ExpenseDetail, details);
 
-    // Update bank balance
-    const bankUpdateDto: UpdateBankDto = {
-      currentBalance: bank.currentBalance - totalAmount,
+    await this.entityServiceManager.incrementEntityBalance(
+      EntityType.BANK,
+      bank.id,
+      bank.currentBalance - totalAmount,
+    );
+
+    const bankAccount = await this.accountService.findByEntityIdAndType(
+      bank.id,
+      EntityType.BANK,
+    );
+
+    if (!bankAccount) {
+      throw new NotFoundException(
+        `Account not found for bank with ID ${bank.id}`,
+      );
+    }
+
+    const CreditBankAccount = bankAccount.filter(
+      (ba) => !ba.pathName.includes('General Reserves'),
+    )[0];
+
+    const accountUpdateDto: UpdateAccountDto = {
+      creditAmount:
+        Number(CreditBankAccount.creditAmount) + Number(totalAmount),
     };
-    await this.bankService.update(bank.id, bankUpdateDto, queryRunner);
+    await this.accountService.update(
+      CreditBankAccount.id,
+      accountUpdateDto,
+      queryRunner,
+    );
 
     for (const detail of createExpenseDto.details) {
       const account = await queryRunner.manager.findOne(Account, {

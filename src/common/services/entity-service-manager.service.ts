@@ -3,6 +3,7 @@ import { VendorService } from 'src/vendor/vendor.service';
 import { CustomerService } from 'src/customer/customer.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { EntityType } from '../enums/entity-type.enum';
+import { BankService } from 'src/bank/bank.service';
 
 @Injectable()
 export class EntityServiceManager {
@@ -10,6 +11,7 @@ export class EntityServiceManager {
     private vendorService: VendorService,
     private customerService: CustomerService,
     private inventoryService: InventoryService,
+    private bankService: BankService,
   ) {}
 
   async incrementEntityBalance(
@@ -26,6 +28,9 @@ export class EntityServiceManager {
         break;
       case EntityType.INVENTORY:
         await this.inventoryService.incrementBalance(entityId, amount);
+        break;
+      case EntityType.BANK:
+        await this.bankService.incrementBalance(entityId, amount);
         break;
       default:
         throw new BadRequestException(`Unsupported entity type: ${entityType}`);
