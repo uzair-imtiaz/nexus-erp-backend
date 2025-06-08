@@ -1,5 +1,12 @@
 import { Transform } from 'class-transformer';
-import { IsArray, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsArray,
+  IsDate,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class ExpenseFilterDto {
   @IsOptional()
@@ -24,10 +31,10 @@ export class ExpenseFilterDto {
   nominal_account_ids?: string[];
 
   @IsOptional()
-  @IsString()
+  @IsDate()
   date_from?: Date;
 
   @IsOptional()
-  @IsString()
+  @IsDate()
   date_to?: Date;
 }

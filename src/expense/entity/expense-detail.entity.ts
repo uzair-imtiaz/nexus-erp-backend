@@ -4,7 +4,9 @@ import { Expense } from './expense.entity';
 
 @Entity()
 export class ExpenseDetail extends BaseTransactionDetail {
-  @ManyToOne(() => Expense, (expense) => expense.details)
+  @ManyToOne(() => Expense, (expense) => expense.details, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'expense_id' })
   expense: Expense;
 

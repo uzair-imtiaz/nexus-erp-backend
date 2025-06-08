@@ -137,9 +137,6 @@ export class ExpenseService {
 
   async findAll(filters: Record<string, any>): Promise<Paginated<Expense>> {
     const tenantId = this.tenantContextService.getTenantId();
-    if (!tenantId) {
-      throw new BadRequestException('Tenant ID not found in request headers');
-    }
 
     const queryBuilder = this.expenseRepository
       .createQueryBuilder('expense')

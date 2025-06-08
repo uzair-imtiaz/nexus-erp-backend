@@ -17,7 +17,7 @@ export class Expense extends BaseEntity {
   @JoinColumn({ name: 'bank_id' })
   bank: Bank;
 
-  @OneToMany(() => ExpenseDetail, (detail) => detail.expense, { cascade: true })
+  @OneToMany(() => ExpenseDetail, (detail) => detail.expense)
   details: ExpenseDetail[];
 
   @Column({
