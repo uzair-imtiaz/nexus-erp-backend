@@ -33,7 +33,7 @@ export class EntityServiceManager {
         await this.bankService.incrementBalance(entityId, amount);
         break;
       default:
-        throw new BadRequestException(`Unsupported entity type: ${entityType}`);
+        throw new BadRequestException('Invalid entity type');
     }
   }
 }
