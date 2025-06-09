@@ -5,7 +5,14 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
-import { Brackets, DataSource, In, QueryRunner, Repository } from 'typeorm';
+import {
+  Brackets,
+  DataSource,
+  In,
+  Like,
+  QueryRunner,
+  Repository,
+} from 'typeorm';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { Account } from './entity/account.entity';
@@ -325,6 +332,56 @@ export class AccountService {
           )
           .execute();
       }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  private async propagateAmountInDirection(
+    queryRunner: QueryRunner,
+    account: Account,
+    amountData: { type: 'debitAmount' | 'creditAmount'; amount: number },
+    direction: 'up' | 'down',
+    tenantId: string,
+  ) {
+    try {
+      const { type, amount } = amountData;
+      if (amount === 0) return;
+
+      const qb = queryRunner.manager.createQueryBuilder().update(Account);
+
+      qb.set({
+        [type]: () => `"${accountColumnNameMap[type]}" + ${amount}`,
+      });
+
+      if (direction === 'up') {
+        // If no ancestors, skip propagation
+        const ancestorCodes = account.path.split('/').slice(0, -1);
+        if (ancestorCodes.length === 0) return;
+
+        qb.where({ code: In(ancestorCodes) });
+      } else if (direction === 'down') {
+        // If no children/descendants, skip propagation
+        const childCount = await queryRunner.manager.count(Account, {
+          where: {
+            path: Like(`${account.path}/%`),
+            tenant: { id: tenantId },
+          },
+        });
+        if (childCount === 0) return;
+
+        qb.where('path LIKE :path', { path: `${account.path}/%` });
+      }
+
+      qb.andWhere(
+        new Brackets((qb) => {
+          qb.where('tenant = :tenantId', { tenantId }).orWhere(
+            'system_generated = true',
+          );
+        }),
+      );
+
+      await qb.execute();
     } catch (error) {
       throw error;
     }

@@ -6,17 +6,44 @@ import { NextFunction, Request, Response } from 'express';
 import * as session from 'express-session';
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { seedAccounts } from './account/seeds';
 import { DataSource } from 'typeorm';
+import { seedAccounts } from './account/seeds';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
 
+  const allowedOrigins = [
+    'http://localhost:80',
+    'http://localhost:5173',
+    'http://app:80',
+    'http://localhost',
+  ];
+
   const corsOptions: CorsOptions = {
-    origin: 'http://localhost:5173',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log('Blocked by CORS:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'x-tenant-id'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
     credentials: true,
+    maxAge: 3600,
   };
+
   app.enableCors(corsOptions);
   app.use(CookieParser());
   app.use(
@@ -48,6 +75,9 @@ async function bootstrap() {
       exceptionFactory: (errors) => {
         logger.error(`Validation failed: ${JSON.stringify(errors)}`);
         return errors;
+      },
+      transformOptions: {
+        enableImplicitConversion: true,
       },
     }),
   );

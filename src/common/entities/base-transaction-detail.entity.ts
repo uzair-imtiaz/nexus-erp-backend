@@ -1,0 +1,24 @@
+import { Account } from 'src/account/entity/account.entity';
+import { BaseEntity } from 'src/common/entities/base.entity';
+import {
+  Column,
+  CreateDateColumn,
+  JoinColumn,
+  ManyToOne,
+  UpdateDateColumn,
+} from 'typeorm';
+
+export abstract class BaseTransactionDetail extends BaseEntity {
+  @ManyToOne(() => Account)
+  @JoinColumn({ name: 'nominal_account_id' })
+  nominalAccount: Account;
+
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+}

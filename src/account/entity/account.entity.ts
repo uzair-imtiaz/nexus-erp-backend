@@ -2,6 +2,7 @@ import { Expose } from 'class-transformer';
 import { BaseEntity } from 'src/common/entities/base.entity';
 import { BeforeInsert, Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { AccountType } from '../interfaces/account-type.enum';
+import { EntityType } from 'src/common/enums/entity-type.enum';
 
 @Entity()
 export class Account extends BaseEntity {
@@ -18,7 +19,12 @@ export class Account extends BaseEntity {
   @Column({ unique: true, type: 'varchar', length: 30 })
   code: string;
 
-  @Column({ nullable: true, name: 'entity_type' })
+  @Column({
+    nullable: true,
+    name: 'entity_type',
+    type: 'enum',
+    enum: EntityType,
+  })
   entityType: string;
 
   @Column({ nullable: true, name: 'entity_id' })

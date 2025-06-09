@@ -15,10 +15,17 @@ import { APP_GUARD } from '@nestjs/core';
 import { TenantGuard } from './tenant/guards/tenant.guard';
 import { VendorModule } from './vendor/vendor.module';
 import { CustomerModule } from './customer/customer.module';
+import { ExpenseModule } from './expense/expense.module';
+import { JournalModule } from './journal/journal.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [dbConfig] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [dbConfig],
+      envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
+    }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
@@ -34,6 +41,9 @@ import { CustomerModule } from './customer/customer.module';
     TenantModule,
     VendorModule,
     CustomerModule,
+    ExpenseModule,
+    JournalModule,
+    CommonModule,
   ],
   controllers: [AppController],
   providers: [

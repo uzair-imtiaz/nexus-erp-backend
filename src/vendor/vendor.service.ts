@@ -11,6 +11,7 @@ import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { PARENT_ACCOUNT_IDS } from './contsants/vendor.constants';
 import { CreateAccountDto } from 'src/account/dto/create-account.dto';
 import { AccountService } from 'src/account/account.service';
+import { EntityType } from 'src/common/enums/entity-type.enum';
 
 @Injectable()
 export class VendorService extends GenericService<
@@ -19,33 +20,38 @@ export class VendorService extends GenericService<
   UpdateContactDto
 > {
   constructor(
-    @InjectRepository(Vendor) vendorRepository: Repository<Vendor>,
+    @InjectRepository(Vendor) private vendorRepository: Repository<Vendor>,
     tenantContextService: TenantContextService,
     private readonly accountService: AccountService,
   ) {
     super(vendorRepository, tenantContextService, 'vendor');
   }
+
+  async incrementBalance(id: string, amount: number) {
+    await this.vendorRepository.increment({ id }, 'openingBalance', amount);
+  }
+
   protected async afterCreate(
     entity: Vendor,
     runner?: QueryRunner,
   ): Promise<void> {
     const creditAccount: CreateAccountDto = {
       name: entity.name,
-      code: `${entity.code}-0`,
+      code: `${entity.code}-cr`,
       type: AccountType.SUB_ACCOUNT,
       parentId: PARENT_ACCOUNT_IDS.CREDIT,
       entityId: entity.id,
-      entityType: 'vendor',
+      entityType: EntityType.VENDOR,
       creditAmount: entity.openingBalance,
     };
 
     const debitAccount: CreateAccountDto = {
       name: entity.name,
-      code: `${entity.code}-1`,
+      code: `${entity.code}-dr`,
       type: AccountType.SUB_ACCOUNT,
       parentId: PARENT_ACCOUNT_IDS.DEBIT,
       entityId: entity.id,
-      entityType: 'vendor',
+      entityType: EntityType.VENDOR,
       debitAmount: entity.openingBalance,
     };
     await this.accountService.create(creditAccount, runner);
@@ -58,7 +64,7 @@ export class VendorService extends GenericService<
   ): Promise<void> {
     const accounts = await this.accountService.findByEntityIdAndType(
       entity.id,
-      'vendor',
+      EntityType.VENDOR,
     );
 
     if (!accounts?.length) {
@@ -72,6 +78,7 @@ export class VendorService extends GenericService<
         const data: UpdateAccountDto = {
           ...account,
           name: entity.name,
+          entityType: EntityType.VENDOR,
         };
         if (Number(account.debitAmount)) {
           data['debitAmount'] = entity.openingBalance;
@@ -90,7 +97,7 @@ export class VendorService extends GenericService<
   ): Promise<void> {
     const accounts = await this.accountService.findByEntityIdAndType(
       entity?.id,
-      'vendor',
+      EntityType.VENDOR,
     );
     if (!accounts?.length) {
       throw new NotFoundException(

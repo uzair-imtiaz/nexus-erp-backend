@@ -16,6 +16,8 @@ import { PARENT_ACCOUNT_IDS } from './contsants/inventory.constants';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { Inventory } from './entity/inventory.entity';
+import { EntityType } from 'src/common/enums/entity-type.enum';
+import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
 
 @Injectable()
 export class InventoryService {
@@ -45,6 +47,7 @@ export class InventoryService {
       }
       const inventory = this.inventoryRepository.create({
         ...createInventoryDto,
+        amount: createInventoryDto.baseRate * createInventoryDto.quantity,
         tenant: { id: tenantId },
       });
 
@@ -57,21 +60,21 @@ export class InventoryService {
 
       const creditAccount: CreateAccountDto = {
         name: instance.name,
-        code: `${instance.code}-0`,
+        code: `${instance.code}-cr`,
         type: AccountType.SUB_ACCOUNT,
         parentId: PARENT_ACCOUNT_IDS.CREDIT,
         entityId: instance.id,
-        entityType: 'inventory',
+        entityType: EntityType.INVENTORY,
         creditAmount: instance.amount,
       };
 
       const debitAccount: CreateAccountDto = {
         name: instance.name,
-        code: `${instance.code}-1`,
+        code: `${instance.code}-dr`,
         type: AccountType.SUB_ACCOUNT,
         parentId: PARENT_ACCOUNT_IDS.DEBIT,
         entityId: instance.id,
-        entityType: 'inventory',
+        entityType: EntityType.INVENTORY,
         debitAmount: instance.amount,
       };
 
@@ -191,6 +194,10 @@ export class InventoryService {
         throw new NotFoundException(`Inventory with ID ${id} not found`);
       }
 
+      updateInventoryDto.amount =
+        updateInventoryDto.amount ??
+        updateInventoryDto.baseRate! * updateInventoryDto.quantity!;
+
       Object.assign(inventory, updateInventoryDto);
       const updatedInventory = await queryRunner.manager.save(inventory);
       const instance = plainToInstance(Inventory, updatedInventory);
@@ -208,9 +215,10 @@ export class InventoryService {
 
       await Promise.all(
         accounts.map((account) => {
-          const updateData = {
+          const updateData: UpdateAccountDto = {
             ...account,
             name: instance.name,
+            entityType: EntityType.INVENTORY,
           };
 
           // Determine if this is a debit or credit account
@@ -235,5 +243,9 @@ export class InventoryService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  async incrementBalance(id: string, amount: number) {
+    await this.inventoryRepository.increment({ id }, 'amount', amount);
   }
 }

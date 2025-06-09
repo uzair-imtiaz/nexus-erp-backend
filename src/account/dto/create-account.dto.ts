@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { AccountType } from '../interfaces/account-type.enum';
 import { Transform } from 'class-transformer';
+import { EntityType } from 'src/common/enums/entity-type.enum';
 
 export class CreateAccountDto {
   @IsNotEmpty()
@@ -24,8 +25,8 @@ export class CreateAccountDto {
 
   @ValidateIf((o) => o.type === AccountType.SUB_ACCOUNT)
   @IsNotEmpty()
-  @IsString()
-  entityType?: string;
+  @IsEnum(EntityType)
+  entityType?: EntityType;
 
   @IsNumber()
   @IsOptional()

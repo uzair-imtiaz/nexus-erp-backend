@@ -10,7 +10,12 @@ import { DataSource } from 'typeorm';
 import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Bank]), TenantModule, AccountModule, AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Bank]),
+    TenantModule,
+    AccountModule,
+    AuthModule,
+  ],
   controllers: [BankController],
   providers: [
     BankService,
@@ -21,5 +26,6 @@ import { AuthModule } from 'src/auth/auth.module';
       inject: [DataSource],
     },
   ],
+  exports: [BankService],
 })
-export class BankModule { }
+export class BankModule {}
