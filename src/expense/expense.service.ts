@@ -190,7 +190,7 @@ export class ExpenseService {
     const tenantId = this.tenantContextService.getTenantId();
     const expense = await this.expenseRepository.findOne({
       where: { id, tenant: { id: tenantId } },
-      relations: ['bank', 'details'],
+      relations: ['bank', 'details', 'details.nominalAccount'],
     });
     if (!expense) {
       throw new NotFoundException('Expense not found');
