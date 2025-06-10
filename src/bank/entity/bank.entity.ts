@@ -27,7 +27,7 @@ export class Bank extends BaseEntity {
   })
   currentBalance: number;
 
-  @Column({ type: 'date', name: 'opening_date' })
+  @Column({ type: 'timestamptz', name: 'opening_date' })
   openingDate: Date;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })

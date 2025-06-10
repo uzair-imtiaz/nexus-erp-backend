@@ -23,8 +23,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       if (!refreshToken) throw new UnauthorizedException('Login required');
 
       // Validate refresh token and generate new access token
-      const payload = await this.authService.validateRefreshToken(refreshToken);
-      const newAccessToken = this.authService.generateAccessToken(payload);
+      const payload =
+        await this.authService?.validateRefreshToken(refreshToken);
+      const newAccessToken = this.authService?.generateAccessToken(payload);
 
       // Update request headers for subsequent guards/controllers
       req.headers.authorization = `Bearer ${newAccessToken}`;
