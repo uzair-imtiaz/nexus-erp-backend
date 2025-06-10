@@ -6,7 +6,7 @@ export class Bank extends BaseEntity {
   @Column()
   name: string;
 
-  @Column()
+  @Column({ unique: true, name: 'account_number' })
   accountNumber: string;
 
   @Column()
@@ -16,7 +16,7 @@ export class Bank extends BaseEntity {
   code: string;
 
   @Column({
-    name: 'base_rate',
+    name: 'current_balance',
     type: 'decimal',
     precision: 10,
     scale: 2,
@@ -27,12 +27,12 @@ export class Bank extends BaseEntity {
   })
   currentBalance: number;
 
-  @Column({ type: 'date' })
+  @Column({ type: 'date', name: 'opening_date' })
   openingDate: Date;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
 }

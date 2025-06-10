@@ -1,6 +1,14 @@
 import { Expose } from 'class-transformer';
 import { BaseEntity } from 'src/common/entities/base.entity';
-import { BeforeInsert, Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import {
+  BeforeInsert,
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  UpdateDateColumn,
+} from 'typeorm';
 import { AccountType } from '../interfaces/account-type.enum';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 
@@ -56,6 +64,12 @@ export class Account extends BaseEntity {
 
   @Column({ name: 'path_name', nullable: true })
   pathName: string;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
+  updatedAt: Date;
 
   @Expose()
   getAmount(): number {

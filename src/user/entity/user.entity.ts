@@ -23,9 +23,9 @@ export class User extends BaseEntity {
   })
   role: Role;
 
-  @CreateDateColumn({ name: 'created_at', select: false })
+  @CreateDateColumn({ name: 'created_at', select: false, type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at', select: false })
+  @UpdateDateColumn({ name: 'updated_at', select: false, type: 'timestamptz' })
   updatedAt: Date;
 }
