@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  ValidateNested,
 } from 'class-validator';
 import { MultiUnitDto } from './multi-tenant.dto';
 
@@ -38,6 +39,8 @@ export class CreateInventoryDto {
   baseUnit: string;
 
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MultiUnitDto)
   @IsOptional()
   multiUnits?: MultiUnitDto[];
 }
