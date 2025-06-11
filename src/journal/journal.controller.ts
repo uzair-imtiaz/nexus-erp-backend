@@ -5,6 +5,7 @@ import {
   Post,
   Query,
   Req,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { JournalService } from './journal.service';
@@ -13,8 +14,10 @@ import { ResponseMetadata } from 'src/common/decorators/response-metadata.decora
 import { CreateJournalDto } from './dto/create-journal.dto';
 import { TransactionRequest } from 'src/common/interfaces/TransactionRequest';
 import { JournalFilterDto } from './dto/journal-filter.dto';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @Controller('journals')
+@UseGuards(JwtAuthGuard)
 export class JournalController {
   constructor(private readonly journalService: JournalService) {}
 
