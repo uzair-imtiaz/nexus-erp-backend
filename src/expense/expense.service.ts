@@ -34,7 +34,7 @@ export class ExpenseService {
   ) {}
 
   async create(createExpenseDto: CreateExpenseDto, queryRunner: QueryRunner) {
-    const tenantId = this.tenantContextService.getTenantId();
+    const tenantId = this.tenantContextService.getTenantId()!;
     const bank = await this.bankService.findOne(createExpenseDto.bankId);
     if (!bank) {
       throw new NotFoundException('Bank not found');
@@ -74,47 +74,27 @@ export class ExpenseService {
       bank.currentBalance - totalAmount,
     );
 
-    const bankAccount = await this.accountService.findByEntityIdAndType(
+    const creditBankAccount = await this.getValidAccountByEntityId(
       bank.id,
       EntityType.BANK,
     );
 
-    if (!bankAccount) {
-      throw new NotFoundException(
-        `Account not found for bank with ID ${bank.id}`,
-      );
-    }
-
-    const CreditBankAccount = bankAccount.filter(
-      (ba) => !ba.pathName.includes('General Reserves'),
-    )[0];
-
     const accountUpdateDto: UpdateAccountDto = {
       creditAmount:
-        Number(CreditBankAccount.creditAmount) + Number(totalAmount),
+        Number(creditBankAccount?.creditAmount) + Number(totalAmount),
     };
     await this.accountService.update(
-      CreditBankAccount.id,
+      creditBankAccount?.id,
       accountUpdateDto,
       queryRunner,
     );
 
     for (const detail of createExpenseDto.details) {
-      const account = await queryRunner.manager.findOne(Account, {
-        where: { id: detail.nominalAccountId, tenant: { id: tenantId } },
-      });
-
-      if (!account) {
-        throw new NotFoundException(
-          `Account with ID ${detail.nominalAccountId} not found`,
-        );
-      }
-
-      if (account.pathName.includes('General Reserves')) {
-        throw new BadRequestException(
-          'General Reserves account cannot be used for expenses',
-        );
-      }
+      const account = await this.getValidAccount(
+        detail.nominalAccountId,
+        tenantId,
+        queryRunner,
+      );
 
       const accountUpdateDto: UpdateAccountDto = {
         debitAmount: Number(account.debitAmount) + Number(detail.amount),
@@ -199,11 +179,11 @@ export class ExpenseService {
   }
 
   async update(id: string, data: updateExpenseDto, queryRunner: QueryRunner) {
-    const tenantId = this.tenantContextService.getTenantId();
+    const tenantId = this.tenantContextService.getTenantId()!;
 
     const existingExpense = await queryRunner.manager.findOne(Expense, {
       where: { id, tenant: { id: tenantId } },
-      relations: ['bank', 'details'],
+      relations: ['bank', 'details', 'details.nominalAccount'],
     });
 
     if (!existingExpense) {
@@ -215,22 +195,35 @@ export class ExpenseService {
     }
 
     const newTotalAmount = data.details.reduce(
-      (sum, detail) => sum + detail.amount,
+      (sum, detail) => sum + Number(detail.amount),
       0,
     );
 
     const isBankChanged =
-      data.bankId && data.bankId !== existingExpense.bank.id;
+      data.bankId && data.bankId !== String(existingExpense.bank.id);
 
     if (isBankChanged) {
       // 1. Reverse old bank balance
-      const oldBankUpdateDto: UpdateBankDto = {
-        currentBalance:
-          existingExpense.bank.currentBalance + existingExpense.totalAmount,
+      await this.entityServiceManager.incrementEntityBalance(
+        EntityType.BANK,
+        existingExpense?.bank?.id,
+        Number(existingExpense?.bank?.currentBalance) +
+          Number(existingExpense?.totalAmount),
+      );
+
+      let creditBankAccount = await this.getValidAccountByEntityId(
+        existingExpense?.bank?.id,
+        EntityType.BANK,
+      );
+
+      const accountUpdateDto: UpdateAccountDto = {
+        creditAmount:
+          Number(existingExpense?.bank?.currentBalance) -
+          Number(existingExpense?.totalAmount),
       };
-      await this.bankService.update(
-        existingExpense.bank.id,
-        oldBankUpdateDto,
+      await this.accountService.update(
+        creditBankAccount.id,
+        accountUpdateDto,
         queryRunner,
       );
 
@@ -243,16 +236,32 @@ export class ExpenseService {
         throw new NotFoundException(`Bank with ID ${data.bankId} not found`);
       }
 
-      const newBankUpdateDto: UpdateBankDto = {
-        currentBalance: Number(newBank.currentBalance) - Number(newTotalAmount),
+      await this.entityServiceManager.incrementEntityBalance(
+        EntityType.BANK,
+        newBank.id,
+        Number(newBank.currentBalance) - Number(newTotalAmount),
+      );
+
+      creditBankAccount = await this.getValidAccountByEntityId(
+        newBank.id,
+        EntityType.BANK,
+      );
+
+      const newAccountUpdateDto: UpdateAccountDto = {
+        creditAmount: Number(newBank.currentBalance) + Number(newTotalAmount),
       };
-      await this.bankService.update(newBank.id, newBankUpdateDto, queryRunner);
+      await this.accountService.update(
+        creditBankAccount.id,
+        newAccountUpdateDto,
+        queryRunner,
+      );
 
       // Attach new bank to expense
       existingExpense.bank = newBank;
     } else {
-      // If bank is the same, update by delta
-      const totalDiff = newTotalAmount - existingExpense.totalAmount;
+      // If bank is same, update by delta
+      const totalDiff =
+        Number(newTotalAmount) - Number(existingExpense.totalAmount);
       if (totalDiff !== 0) {
         const bankUpdateDto: UpdateBankDto = {
           currentBalance: existingExpense.bank.currentBalance - totalDiff,
@@ -265,32 +274,29 @@ export class ExpenseService {
       }
     }
 
-    // Handle account balance adjustments
-    for (const newDetail of data.details) {
-      const oldDetail = existingExpense.details.find(
-        (detail) => detail.nominalAccount.id === newDetail.nominalAccountId,
+    // Map for existing details
+    const existingDetailsMap = new Map(
+      existingExpense.details.map((detail) => [
+        String(detail.nominalAccount.id),
+        detail,
+      ]),
+    );
+
+    // Remove details no longer present in the new data
+    for (const oldDetail of existingExpense.details) {
+      const isRemoved = !data.details.some(
+        (d) => d.nominalAccountId === String(oldDetail.nominalAccount.id),
       );
-      const diff = newDetail.amount - (oldDetail?.amount ?? 0);
 
-      if (diff !== 0) {
-        const account = await queryRunner.manager.findOne(Account, {
-          where: { id: newDetail.nominalAccountId, tenant: { id: tenantId } },
-        });
-
-        if (!account) {
-          throw new NotFoundException(
-            `Account with ID ${newDetail.nominalAccountId} not found`,
-          );
-        }
-
-        if (account.pathName.includes('General Reserves')) {
-          throw new BadRequestException(
-            'General Reserves cannot be debited or credited',
-          );
-        }
+      if (isRemoved) {
+        const account = await this.getValidAccount(
+          oldDetail.nominalAccount.id,
+          tenantId,
+          queryRunner,
+        );
 
         const accountUpdateDto: UpdateAccountDto = {
-          debitAmount: account.debitAmount + diff,
+          debitAmount: Number(account?.debitAmount) - Number(oldDetail?.amount),
         };
         await this.accountService.update(
           account.id,
@@ -301,12 +307,60 @@ export class ExpenseService {
         await this.entityServiceManager.incrementEntityBalance(
           account.entityType as EntityType,
           account.entityId,
-          diff,
+          -oldDetail.amount,
         );
+
+        await queryRunner.manager.remove(oldDetail);
       }
     }
 
-    // Update the Expense
+    // Add new / update existing details
+    for (const newDetail of data.details) {
+      const oldDetail = existingDetailsMap.get(newDetail.nominalAccountId);
+      const diff = Number(newDetail.amount) - Number(oldDetail?.amount ?? 0);
+
+      if (diff !== 0) {
+        const account = await this.getValidAccount(
+          newDetail.nominalAccountId,
+          tenantId,
+          queryRunner,
+        );
+
+        const accountUpdateDto: UpdateAccountDto = {
+          debitAmount: Number(account.debitAmount) + Number(diff),
+        };
+        await this.accountService.update(
+          account.id,
+          accountUpdateDto,
+          queryRunner,
+        );
+
+        await this.entityServiceManager.incrementEntityBalance(
+          account.entityType as EntityType,
+          account.entityId,
+          Number(diff),
+        );
+
+        // Update existing detail
+        if (oldDetail) {
+          oldDetail.amount = newDetail.amount;
+          if (newDetail.description)
+            oldDetail.description = newDetail.description;
+          await queryRunner.manager.save(oldDetail);
+        } else {
+          // Create new detail
+          const expenseDetail = queryRunner.manager.create(ExpenseDetail, {
+            amount: newDetail.amount,
+            description: newDetail.description,
+            nominalAccount: account,
+            expense: existingExpense,
+            tenant: { id: tenantId },
+          });
+          await queryRunner.manager.save(expenseDetail);
+        }
+      }
+    }
+
     existingExpense.totalAmount = newTotalAmount;
     existingExpense.description = data.description;
     await queryRunner.manager.save(Expense, existingExpense);
@@ -315,7 +369,7 @@ export class ExpenseService {
   }
 
   async delete(id: string, queryRunner: QueryRunner) {
-    const tenantId = this.tenantContextService.getTenantId();
+    const tenantId = this.tenantContextService.getTenantId()!;
 
     // Find existing expense with details
     const existingExpense = await queryRunner.manager.findOne(Expense, {
@@ -341,32 +395,26 @@ export class ExpenseService {
 
     // Reverse account balance changes
     for (const detail of existingExpense.details) {
-      const account = await queryRunner.manager.findOne(Account, {
-        where: { id: detail.nominalAccount?.id, tenant: { id: tenantId } },
-      });
+      const account = await this.getValidAccount(
+        detail.nominalAccount.id,
+        tenantId,
+        queryRunner,
+      );
 
-      if (account) {
-        if (account.pathName.includes('General Reserves')) {
-          throw new BadRequestException(
-            'General Reserves cannot be debited or credited',
-          );
-        }
+      const accountUpdateDto: UpdateAccountDto = {
+        debitAmount: Number(account.debitAmount) - Number(detail.amount),
+      };
+      await this.accountService.update(
+        account.id,
+        accountUpdateDto,
+        queryRunner,
+      );
 
-        const accountUpdateDto: UpdateAccountDto = {
-          debitAmount: account.debitAmount - detail.amount,
-        };
-        await this.accountService.update(
-          account.id,
-          accountUpdateDto,
-          queryRunner,
-        );
-
-        await this.entityServiceManager.incrementEntityBalance(
-          account.entityType as EntityType,
-          account.entityId,
-          -detail.amount,
-        );
-      }
+      await this.entityServiceManager.incrementEntityBalance(
+        account.entityType as EntityType,
+        account.entityId,
+        -Number(detail.amount),
+      );
     }
 
     // Delete expense details
@@ -378,5 +426,67 @@ export class ExpenseService {
     await queryRunner.manager.delete(Expense, { id: existingExpense.id });
 
     return { message: 'Expense deleted successfully' };
+  }
+
+  private async getValidAccount(
+    accountId: string,
+    tenantId: string,
+    queryRunner: QueryRunner,
+  ): Promise<Account> {
+    const account = await queryRunner.manager.findOne(Account, {
+      where: { id: accountId, tenant: { id: tenantId } },
+    });
+    if (!account) {
+      throw new NotFoundException(`Account with ID ${accountId} not found`);
+    }
+    if (account.pathName.includes('General Reserves')) {
+      throw new BadRequestException(
+        'General Reserves account cannot be used for expenses',
+      );
+    }
+    return account;
+  }
+
+  private async getValidAccountByEntityId(
+    entityId: string,
+    entityType: EntityType,
+  ): Promise<Account> {
+    const account = await this.accountService.findByEntityIdAndType(
+      entityId,
+      entityType,
+    );
+    if (!account) {
+      throw new NotFoundException(
+        `Account for ${entityType} with ID ${entityId} not found`,
+      );
+    }
+    const validAccount = account.find(
+      (ba) => !ba.pathName.includes('General Reserves'),
+    )!;
+    return validAccount;
+  }
+
+  private async incrementEntityBalanceForAccount(
+    account: Account,
+    amount: number,
+  ) {
+    await this.entityServiceManager.incrementEntityBalance(
+      account.entityType as EntityType,
+      account.entityId,
+      amount,
+    );
+  }
+
+  private async updateAccountBalance(
+    account: Account,
+    amount: number,
+    type: 'debit' | 'credit',
+    queryRunner: QueryRunner,
+  ) {
+    const updateDto: UpdateAccountDto =
+      type === 'debit'
+        ? { debitAmount: Number(account.debitAmount) + amount }
+        : { creditAmount: Number(account.creditAmount) + amount };
+    await this.accountService.update(account.id, updateDto, queryRunner);
   }
 }
