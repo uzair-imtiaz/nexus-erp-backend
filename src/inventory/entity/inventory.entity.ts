@@ -47,7 +47,7 @@ export class Inventory extends BaseEntity {
   parentId: string;
 
   @Column({ type: 'jsonb', nullable: true, name: 'multi_units' })
-  multiUnits: { name: string; factor: number }[];
+  multiUnits: Record<string, number>;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
   createdAt: Date;
