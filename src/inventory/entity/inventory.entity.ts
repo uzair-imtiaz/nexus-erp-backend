@@ -28,7 +28,7 @@ export class Inventory extends BaseEntity {
   @Column({ nullable: true })
   category: string;
 
-  @Column()
+  @Column({ name: 'base_unit', nullable: true })
   baseUnit: string;
 
   @Column({
@@ -46,12 +46,12 @@ export class Inventory extends BaseEntity {
   @Column({ name: 'parent_id', nullable: true })
   parentId: string;
 
-  @Column({ type: 'jsonb', nullable: true })
-  multiUnits: { name: string; factor: number }[];
+  @Column({ type: 'jsonb', nullable: true, name: 'multi_units' })
+  multiUnits: Record<string, number>;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
 }

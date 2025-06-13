@@ -155,4 +155,207 @@ export class JournalService {
     }
     return plainToInstance(Journal, journal);
   }
+
+  async update(
+    id: string,
+    updateJournalDto: CreateJournalDto,
+    queryRunner: QueryRunner,
+  ): Promise<Journal> {
+    const tenantId = this.tenantContextService.getTenantId()!;
+    const existingJournal = await this.findOne(id);
+
+    // Create a map of existing details for quick lookup
+    const existingDetailsMap = new Map(
+      existingJournal.details.map((detail) => [
+        detail.nominalAccount.id,
+        detail,
+      ]),
+    );
+
+    // Process all details sequentially to avoid race conditions
+    for (const detail of updateJournalDto.details) {
+      const account = await queryRunner.manager
+        .createQueryBuilder(Account, 'account')
+        .where('account.id = :id', { id: detail.nominalAccountId })
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
+              'account.system_generated = true',
+            );
+          }),
+        )
+        .getOne();
+
+      if (!account) {
+        throw new NotFoundException(
+          `Account with ID ${detail.nominalAccountId} not found`,
+        );
+      }
+
+      const newDebit = Number(detail.debit) || 0;
+      const newCredit = Number(detail.credit) || 0;
+      const currentDebitAmount = Number(account.debitAmount) || 0;
+      const currentCreditAmount = Number(account.creditAmount) || 0;
+
+      // Get the existing detail if it exists
+      const existingDetail = existingDetailsMap.get(detail.nominalAccountId);
+      const oldDebit = existingDetail ? Number(existingDetail.debit) || 0 : 0;
+      const oldCredit = existingDetail ? Number(existingDetail.credit) || 0 : 0;
+
+      // Calculate the difference to apply
+      const debitDiff = newDebit - oldDebit;
+      const creditDiff = newCredit - oldCredit;
+
+      const UpdateAccountDto: UpdateAccountDto = {
+        debitAmount: currentDebitAmount + debitDiff,
+        creditAmount: currentCreditAmount + creditDiff,
+      };
+
+      await this.accountService.update(
+        account.id,
+        UpdateAccountDto,
+        queryRunner,
+      );
+
+      if (account.entityType) {
+        await this.entityServiceManager.incrementEntityBalance(
+          account.entityType as EntityType,
+          account.entityId,
+          debitDiff - creditDiff,
+        );
+      }
+
+      // Update or create journal detail
+      if (existingDetail) {
+        existingDetail.debit = newDebit;
+        existingDetail.credit = newCredit;
+        existingDetail.description = detail.description || '';
+        await queryRunner.manager.save(JournalDetail, existingDetail);
+      } else {
+        const journalDetail = this.journalDetailRepository.create({
+          nominalAccount: { id: detail.nominalAccountId },
+          journal: { id },
+          debit: newDebit,
+          credit: newCredit,
+          description: detail.description,
+          tenant: { id: tenantId },
+        });
+        await queryRunner.manager.save(JournalDetail, journalDetail);
+      }
+    }
+
+    // Remove details that are no longer present
+    const newDetailIds = new Set(
+      updateJournalDto.details.map((d) => d.nominalAccountId),
+    );
+    for (const [accountId, detail] of existingDetailsMap) {
+      if (!newDetailIds.has(accountId)) {
+        // Reverse the amounts for removed details
+        const account = await queryRunner.manager
+          .createQueryBuilder(Account, 'account')
+          .where('account.id = :id', { id: accountId })
+          .andWhere(
+            new Brackets((qb) => {
+              qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
+                'account.system_generated = true',
+              );
+            }),
+          )
+          .getOne();
+
+        if (account) {
+          const currentDebitAmount = Number(account.debitAmount) || 0;
+          const currentCreditAmount = Number(account.creditAmount) || 0;
+
+          const UpdateAccountDto: UpdateAccountDto = {
+            debitAmount: currentDebitAmount - Number(detail.debit),
+            creditAmount: currentCreditAmount - Number(detail.credit),
+          };
+
+          await this.accountService.update(
+            account.id,
+            UpdateAccountDto,
+            queryRunner,
+          );
+
+          if (account.entityType) {
+            await this.entityServiceManager.incrementEntityBalance(
+              account.entityType as EntityType,
+              account.entityId,
+              Number(detail.credit) - Number(detail.debit),
+            );
+          }
+        }
+
+        await queryRunner.manager.delete(JournalDetail, { id: detail.id });
+      }
+    }
+
+    // Update the journal metadata
+    const updatedJournal = await queryRunner.manager.save(Journal, {
+      ...existingJournal,
+      ...updateJournalDto,
+      id,
+      tenant: { id: tenantId },
+    });
+
+    return updatedJournal;
+  }
+
+  async delete(id: string, queryRunner: QueryRunner): Promise<void> {
+    const tenantId = this.tenantContextService.getTenantId()!;
+    const journal = await this.findOne(id);
+
+    // Reverse all journal entries
+    for (const detail of journal.details) {
+      const account = await queryRunner.manager
+        .createQueryBuilder(Account, 'account')
+        .where('account.id = :id', { id: detail.nominalAccount.id })
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
+              'account.system_generated = true',
+            );
+          }),
+        )
+        .getOne();
+
+      if (!account) {
+        throw new NotFoundException(
+          `Account with ID ${detail.nominalAccount.id} not found`,
+        );
+      }
+
+      const currentDebitAmount = Number(account.debitAmount) || 0;
+      const currentCreditAmount = Number(account.creditAmount) || 0;
+
+      // Reverse the amounts
+      const UpdateAccountDto: UpdateAccountDto = {
+        debitAmount: currentDebitAmount - Number(detail.debit),
+        creditAmount: currentCreditAmount - Number(detail.credit),
+      };
+
+      await this.accountService.update(
+        account.id,
+        UpdateAccountDto,
+        queryRunner,
+      );
+
+      if (account.entityType) {
+        await this.entityServiceManager.incrementEntityBalance(
+          account.entityType as EntityType,
+          account.entityId,
+          Number(detail.credit) - Number(detail.debit), // Reverse the balance
+        );
+      }
+    }
+
+    // Delete journal details first (due to foreign key constraints)
+    await queryRunner.manager.delete(JournalDetail, {
+      journal: { id },
+    });
+
+    // Delete the journal
+    await queryRunner.manager.delete(Journal, { id });
+  }
 }

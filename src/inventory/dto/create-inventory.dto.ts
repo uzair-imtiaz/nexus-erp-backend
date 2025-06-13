@@ -1,13 +1,12 @@
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import {
-  IsArray,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsPositive,
   IsString,
 } from 'class-validator';
-import { MultiUnitDto } from './multi-tenant.dto';
+import { IsStringNumberMap } from 'src/common/validators/is-string-number-map.validator';
 
 export class CreateInventoryDto {
   @IsNotEmpty()
@@ -37,7 +36,10 @@ export class CreateInventoryDto {
   @IsNotEmpty()
   baseUnit: string;
 
-  @IsArray()
+  @IsStringNumberMap({
+    message:
+      'multiUnits must be a map of non-empty string keys to number values',
+  })
   @IsOptional()
-  multiUnits?: MultiUnitDto[];
+  multiUnits?: Record<string, number>;
 }
