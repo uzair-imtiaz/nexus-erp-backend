@@ -18,6 +18,7 @@ import { CustomerModule } from './customer/customer.module';
 import { ExpenseModule } from './expense/expense.module';
 import { JournalModule } from './journal/journal.module';
 import { CommonModule } from './common/common.module';
+import { SaleModule } from './sale/sale.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { CommonModule } from './common/common.module';
     ExpenseModule,
     JournalModule,
     CommonModule,
+    SaleModule,
   ],
   controllers: [AppController],
   providers: [

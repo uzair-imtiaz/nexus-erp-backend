@@ -11,7 +11,7 @@ import { CreateAccountDto } from 'src/account/dto/create-account.dto';
 import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { paginate, Paginated } from 'src/common/utils/paginate';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, QueryRunner, Repository } from 'typeorm';
 import { PARENT_ACCOUNT_IDS } from './contsants/inventory.constants';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
@@ -177,11 +177,21 @@ export class InventoryService {
     }
   }
 
-  async update(id: string, updateInventoryDto: UpdateInventoryDto) {
+  async update(
+    id: string,
+    updateInventoryDto: UpdateInventoryDto,
+    queryRunner?: QueryRunner,
+    accountToUpdate?: 'credit' | 'debit',
+  ) {
+    let hasOwnQueryRunner = false;
     const tenantId = this.tenantContextService.getTenantId();
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+
+    if (!queryRunner) {
+      queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+      hasOwnQueryRunner = true;
+    }
 
     try {
       const inventory = await queryRunner.manager
@@ -213,39 +223,61 @@ export class InventoryService {
         );
       }
 
-      await Promise.all(
-        accounts.map((account) => {
-          const updateData: UpdateAccountDto = {
-            ...account,
-            name: instance.name,
-            entityType: EntityType.INVENTORY,
-          };
+      if (!accountToUpdate) {
+        await Promise.all(
+          accounts.map((account) => {
+            const updateData: UpdateAccountDto = {
+              ...account,
+              name: instance.name,
+              entityType: EntityType.INVENTORY,
+            };
 
-          // Determine if this is a debit or credit account
-          if (Number(account.debitAmount)) {
-            updateData['debitAmount'] = instance.amount;
-          } else if (Number(account.creditAmount)) {
-            updateData['creditAmount'] = instance.amount;
-          }
-          return this.accountService.update(
-            account.id,
-            updateData,
-            queryRunner,
-          );
-        }),
-      );
+            // Determine if this is a debit or credit account
+            if (Number(account.debitAmount)) {
+              updateData['debitAmount'] = instance.amount;
+            } else if (Number(account.creditAmount)) {
+              updateData['creditAmount'] = instance.amount;
+            }
+            return this.accountService.update(
+              account.id,
+              updateData,
+              queryRunner,
+            );
+          }),
+        );
+      } else {
+        const account = accounts.find(
+          (account) => !account.pathName.includes('General Reserves'),
+        )!;
 
-      await queryRunner.commitTransaction();
+        const updateData: UpdateAccountDto = {
+          ...account,
+          name: instance.name,
+          entityType: EntityType.INVENTORY,
+        };
+        updateData[`${accountToUpdate}Amount`] = instance.amount;
+        await this.accountService.update(account.id, updateData, queryRunner);
+      }
+      if (hasOwnQueryRunner) await queryRunner.commitTransaction();
       return instance;
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (hasOwnQueryRunner) await queryRunner.rollbackTransaction();
       throw error;
     } finally {
-      await queryRunner.release();
+      if (hasOwnQueryRunner) await queryRunner.release();
     }
   }
 
-  async incrementBalance(id: string, amount: number) {
-    await this.inventoryRepository.increment({ id }, 'amount', amount);
+  async incrementBalance(
+    id: string,
+    amount: number,
+    column: string,
+    queryRunner?: QueryRunner,
+  ) {
+    if (queryRunner) {
+      await queryRunner.manager.increment(Inventory, { id }, column, amount);
+    } else {
+      await this.inventoryRepository.increment({ id }, column, amount);
+    }
   }
 }

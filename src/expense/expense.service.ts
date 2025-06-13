@@ -20,6 +20,7 @@ import { updateExpenseDto } from './dto/update-expense.dto';
 import { Bank } from 'src/bank/entity/bank.entity';
 import { EntityServiceManager } from 'src/common/services/entity-service-manager.service';
 import { EntityType } from 'src/common/enums/entity-type.enum';
+import { AccountManagerService } from 'src/common/services/account-manager.service';
 
 @Injectable()
 export class ExpenseService {
@@ -31,6 +32,7 @@ export class ExpenseService {
     private bankService: BankService,
     private accountService: AccountService,
     private readonly entityServiceManager: EntityServiceManager,
+    private readonly accountManagerService: AccountManagerService,
   ) {}
 
   async create(createExpenseDto: CreateExpenseDto, queryRunner: QueryRunner) {
@@ -74,10 +76,11 @@ export class ExpenseService {
       bank.currentBalance - totalAmount,
     );
 
-    const creditBankAccount = await this.getValidAccountByEntityId(
-      bank.id,
-      EntityType.BANK,
-    );
+    const creditBankAccount =
+      await this.accountManagerService.getValidAccountByEntityId(
+        bank.id,
+        EntityType.BANK,
+      );
 
     const accountUpdateDto: UpdateAccountDto = {
       creditAmount:
@@ -90,7 +93,7 @@ export class ExpenseService {
     );
 
     for (const detail of createExpenseDto.details) {
-      const account = await this.getValidAccount(
+      const account = await this.accountManagerService.getValidAccount(
         detail.nominalAccountId,
         tenantId,
         queryRunner,
@@ -211,10 +214,11 @@ export class ExpenseService {
           Number(existingExpense?.totalAmount),
       );
 
-      let creditBankAccount = await this.getValidAccountByEntityId(
-        existingExpense?.bank?.id,
-        EntityType.BANK,
-      );
+      let creditBankAccount =
+        await this.accountManagerService.getValidAccountByEntityId(
+          existingExpense?.bank?.id,
+          EntityType.BANK,
+        );
 
       const accountUpdateDto: UpdateAccountDto = {
         creditAmount:
@@ -242,10 +246,11 @@ export class ExpenseService {
         Number(newBank.currentBalance) - Number(newTotalAmount),
       );
 
-      creditBankAccount = await this.getValidAccountByEntityId(
-        newBank.id,
-        EntityType.BANK,
-      );
+      creditBankAccount =
+        await this.accountManagerService.getValidAccountByEntityId(
+          newBank.id,
+          EntityType.BANK,
+        );
 
       const newAccountUpdateDto: UpdateAccountDto = {
         creditAmount: Number(newBank.currentBalance) + Number(newTotalAmount),
@@ -289,7 +294,7 @@ export class ExpenseService {
       );
 
       if (isRemoved) {
-        const account = await this.getValidAccount(
+        const account = await this.accountManagerService.getValidAccount(
           oldDetail.nominalAccount.id,
           tenantId,
           queryRunner,
@@ -320,7 +325,7 @@ export class ExpenseService {
       const diff = Number(newDetail.amount) - Number(oldDetail?.amount ?? 0);
 
       if (diff !== 0) {
-        const account = await this.getValidAccount(
+        const account = await this.accountManagerService.getValidAccount(
           newDetail.nominalAccountId,
           tenantId,
           queryRunner,
@@ -395,7 +400,7 @@ export class ExpenseService {
 
     // Reverse account balance changes
     for (const detail of existingExpense.details) {
-      const account = await this.getValidAccount(
+      const account = await this.accountManagerService.getValidAccount(
         detail.nominalAccount.id,
         tenantId,
         queryRunner,
@@ -426,44 +431,6 @@ export class ExpenseService {
     await queryRunner.manager.delete(Expense, { id: existingExpense.id });
 
     return { message: 'Expense deleted successfully' };
-  }
-
-  private async getValidAccount(
-    accountId: string,
-    tenantId: string,
-    queryRunner: QueryRunner,
-  ): Promise<Account> {
-    const account = await queryRunner.manager.findOne(Account, {
-      where: { id: accountId, tenant: { id: tenantId } },
-    });
-    if (!account) {
-      throw new NotFoundException(`Account with ID ${accountId} not found`);
-    }
-    if (account.pathName.includes('General Reserves')) {
-      throw new BadRequestException(
-        'General Reserves account cannot be used for expenses',
-      );
-    }
-    return account;
-  }
-
-  private async getValidAccountByEntityId(
-    entityId: string,
-    entityType: EntityType,
-  ): Promise<Account> {
-    const account = await this.accountService.findByEntityIdAndType(
-      entityId,
-      entityType,
-    );
-    if (!account) {
-      throw new NotFoundException(
-        `Account for ${entityType} with ID ${entityId} not found`,
-      );
-    }
-    const validAccount = account.find(
-      (ba) => !ba.pathName.includes('General Reserves'),
-    )!;
-    return validAccount;
   }
 
   private async incrementEntityBalanceForAccount(
