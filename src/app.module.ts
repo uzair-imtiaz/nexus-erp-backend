@@ -19,12 +19,14 @@ import { ExpenseModule } from './expense/expense.module';
 import { JournalModule } from './journal/journal.module';
 import { CommonModule } from './common/common.module';
 import { SaleModule } from './sale/sale.module';
+import { RedisModule } from './redis/redis.module';
+import redisConfig from './config/redis.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [dbConfig],
+      load: [dbConfig, redisConfig],
       envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
     }),
     TypeOrmModule.forRootAsync({
@@ -46,6 +48,7 @@ import { SaleModule } from './sale/sale.module';
     JournalModule,
     CommonModule,
     SaleModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [
