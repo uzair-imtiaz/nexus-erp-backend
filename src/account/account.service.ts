@@ -21,6 +21,7 @@ import { AccountType } from './interfaces/account-type.enum';
 import { accountColumnNameMap } from './constants/account.constants';
 import { plainToInstance } from 'class-transformer';
 import { RedisService } from 'src/redis/redis.service';
+import { getKeyForRedis } from 'src/common/utils';
 
 @Injectable()
 export class AccountService {
@@ -102,9 +103,7 @@ export class AccountService {
         );
       }
       await this.redisService.setHash(`account:${account.id}`, account);
-      const key = `accountByEntity:${tenantId}:${account.entityType}:${account.entityId}:${
-        account.pathName.includes('General Reserves') ? 'reserves' : 'regular'
-      }`;
+      const key = getKeyForRedis(account, tenantId);
 
       await this.redisService.setHash(key, account);
 
@@ -144,9 +143,7 @@ export class AccountService {
     accounts
       .filter((account) => account.tenant)
       .forEach((account) => {
-        const key = `accountByEntity:${tenantId}:${account.entityType}:${account.entityId}:${
-          account.pathName.includes('General Reserves') ? 'reserves' : 'regular'
-        }`;
+        const key = getKeyForRedis(account, tenantId);
 
         this.redisService.setHash(key, account);
       });
@@ -177,7 +174,6 @@ export class AccountService {
     }
 
     try {
-      // Fetch the existing account data from Redis cache
       const account = await this.redisService.getHash<Account>(`account:${id}`);
 
       if (!account) throw new NotFoundException(`Account:${id} not found`);
@@ -271,24 +267,16 @@ export class AccountService {
         debitAmount: updatedDebit,
       });
 
-      await this.redisService.setMHash(
-        `accountByEntity:${tenantId}:${account.entityType}:${account.entityId}:`,
-        {
-          ...fieldsToUpdate,
-          creditAmount: updatedCredit,
-          debitAmount: updatedDebit,
-        },
-      );
-
-      if (ownQueryRunner) await queryRunner.commitTransaction();
-
-      return {
-        id,
+      const key = getKeyForRedis(account, tenantId);
+      await this.redisService.setMHash(key, {
         ...fieldsToUpdate,
         creditAmount: updatedCredit,
         debitAmount: updatedDebit,
-        path,
-      } as unknown as Account;
+      });
+
+      if (ownQueryRunner) await queryRunner.commitTransaction();
+      Object.assign(account, fieldsToUpdate);
+      return account;
     } catch (error) {
       if (ownQueryRunner) await queryRunner.rollbackTransaction();
       throw error;
@@ -371,9 +359,7 @@ export class AccountService {
         }
       }
       await this.redisService.deleteHash(`account:${id}`);
-      const key = `accountByEntity:${tenantId}:${account.entityType}:${account.entityId}:${
-        account.pathName.includes('General Reserves') ? 'reserves' : 'regular'
-      }`;
+      const key = getKeyForRedis(account, tenantId);
 
       await this.redisService.deleteHash(key);
       if (ownQueryRunner) await queryRunner.commitTransaction();
@@ -549,12 +535,6 @@ export class AccountService {
         tenant: { id: tenantId },
       },
     });
-    const start = performance.now();
-    this.redisService.set(
-      `account:${entityId}:${entityType}`,
-      JSON.stringify(x),
-    );
-    console.log('save in redis took', performance.now() - start, 'ms');
     return x;
   }
 }

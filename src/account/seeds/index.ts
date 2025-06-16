@@ -256,11 +256,25 @@ export const seedAccounts = async (dataSource: DataSource) => {
     discount,
   );
 
+  const discountReceived = await createAccount(
+    'Discount Received',
+    '332000',
+    AccountType.ACCOUNT,
+    discount,
+  );
+
   await createAccount(
     'Discount on Invoice',
     '331100',
     AccountType.SUB_ACCOUNT,
     discountAllowed,
+  );
+
+  await createAccount(
+    'Discount on Purchase',
+    '332100',
+    AccountType.SUB_ACCOUNT,
+    discountReceived,
   );
 
   const costOfSales = await createAccount(

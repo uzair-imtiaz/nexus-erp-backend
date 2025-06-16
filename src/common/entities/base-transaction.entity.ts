@@ -17,6 +17,9 @@ export class BaseTransactionEntity extends BaseEntity {
   })
   totalAmount: number;
 
+  @Column({ nullable: true })
+  notes?: string;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
   createdAt: Date;
 

@@ -14,7 +14,4 @@ export class Sale extends BaseTransactionEntity {
 
   @Column()
   type: 'SALE' | 'RETURN';
-
-  @Column({ nullable: true })
-  notes?: string;
 }

@@ -20,6 +20,7 @@ import { JournalModule } from './journal/journal.module';
 import { CommonModule } from './common/common.module';
 import { SaleModule } from './sale/sale.module';
 import { RedisModule } from './redis/redis.module';
+import { PurchaseModule } from './purchase/purchase.module';
 import redisConfig from './config/redis.config';
 
 @Module({
@@ -49,6 +50,7 @@ import redisConfig from './config/redis.config';
     CommonModule,
     SaleModule,
     RedisModule,
+    PurchaseModule,
   ],
   controllers: [AppController],
   providers: [

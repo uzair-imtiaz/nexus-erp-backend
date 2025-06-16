@@ -4,68 +4,70 @@ import { plainToInstance } from 'class-transformer';
 import { AccountService } from 'src/account/account.service';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { paginate, Paginated } from 'src/common/utils/paginate';
-import { CustomerService } from 'src/customer/customer.service';
 import { Customer } from 'src/customer/entity/customer.entity';
 import { Inventory } from 'src/inventory/entity/inventory.entity';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { RedisService } from 'src/redis/redis.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { VendorService } from 'src/vendor/vendor.service';
 import { QueryRunner, Repository } from 'typeorm';
-import { ACCOUNT_IDS } from './constants/sale.constants';
-import { CreateSaleDto, InventoryDto } from './dto/create-sale.dto';
-import { SaleInventory } from './entity/sale-inventory.entity';
-import { Sale } from './entity/sale.entity';
+import { ACCOUNT_IDS } from './constants/purchase.constants';
+import { CreatePurchaseDto, InventoryDto } from './dto/create-purchase.dto';
+import { PurchaseInventory } from './entity/purchase-inventory.entity';
+import { Purchase } from './entity/purchase.entity';
 
 @Injectable()
-export class SaleService {
+export class PurchaseService {
   constructor(
-    @InjectRepository(Sale) private saleRepository: Repository<Sale>,
-    @InjectRepository(SaleInventory)
-    private saleInventoryRepository: Repository<SaleInventory>,
-    private readonly tenantContextService: TenantContextService,
-    private readonly customerService: CustomerService,
-    private readonly inventoryService: InventoryService,
+    @InjectRepository(Purchase)
+    private purchaseRepository: Repository<Purchase>,
+    @InjectRepository(PurchaseInventory)
+    private purchaseInventoryRepository: Repository<PurchaseInventory>,
     private readonly accountService: AccountService,
+    private readonly tenantContextService: TenantContextService,
+    private readonly vendorService: VendorService,
+    private readonly inventoryService: InventoryService,
     private readonly redisService: RedisService,
   ) {}
-  // Public API
-  async createSale(
-    dto: CreateSaleDto,
+
+  async createPurchase(
+    dto: CreatePurchaseDto,
     queryRunner: QueryRunner,
-  ): Promise<Sale> {
-    return this.createTransactionInternal(dto, 'SALE', queryRunner);
+  ): Promise<Purchase> {
+    return this.createTransactionInternal(dto, 'PURCHASE', queryRunner);
   }
 
   async createReturn(
-    dto: CreateSaleDto,
+    dto: CreatePurchaseDto,
     queryRunner: QueryRunner,
-  ): Promise<Sale> {
+  ): Promise<Purchase> {
     return this.createTransactionInternal(dto, 'RETURN', queryRunner);
   }
 
   private async createTransactionInternal(
-    dto: CreateSaleDto,
-    type: 'SALE' | 'RETURN',
+    dto: CreatePurchaseDto,
+    type: 'PURCHASE' | 'RETURN',
     queryRunner: QueryRunner,
-  ): Promise<Sale> {
+  ): Promise<Purchase> {
     const tenantId = this.tenantContextService.getTenantId()!;
 
     let totalAmount = 0;
     let totalTax = 0;
     let totalDiscount = 0;
-    const inventories: SaleInventory[] = [];
+    const inventories: PurchaseInventory[] = [];
     const accountUpdates: Promise<any>[] = [];
 
-    const saleToSave = this.saleRepository.create({
+    const purchaseToSave = this.purchaseRepository.create({
       tenant: { id: tenantId },
       notes: dto.notes,
-      customer: { id: dto.customerId },
+      vendor: { id: dto.vendorId },
       ref: dto.ref,
       date: dto.date,
       totalAmount: 0,
       type,
     });
-    const savedTransaction = await queryRunner.manager.save(saleToSave);
+
+    const savedTransaction = await queryRunner.manager.save(purchaseToSave);
 
     for (const item of dto.items) {
       const { amount, tax, discount } = this.calculateItemTotals(item);
@@ -76,8 +78,8 @@ export class SaleService {
       await this.handleInventoryUpdate(item, amount, type, queryRunner);
 
       inventories.push(
-        this.saleInventoryRepository.create({
-          sale: savedTransaction,
+        this.purchaseInventoryRepository.create({
+          purchase: savedTransaction,
           inventory: { id: item.id },
           quantity: item.quantity,
           rate: item.rate,
@@ -89,22 +91,9 @@ export class SaleService {
       );
     }
 
-    accountUpdates.push(
-      this.accountService.update(
-        String(ACCOUNT_IDS.COST),
-        {
-          ...(type === 'SALE'
-            ? { debitAmount: totalAmount }
-            : { creditAmount: totalAmount }),
-        },
-        queryRunner,
-        true,
-      ),
-    );
-
     const netAmount = totalAmount + totalTax - totalDiscount;
-    await this.updateCustomerBalance(
-      dto.customerId,
+    await this.updateVendorBalance(
+      dto.vendorId,
       netAmount,
       type,
       accountUpdates,
@@ -119,21 +108,9 @@ export class SaleService {
       queryRunner,
     );
 
-    accountUpdates.push(
-      this.accountService.update(
-        String(ACCOUNT_IDS.SALE),
-        {
-          ...(type === 'SALE'
-            ? { creditAmount: totalAmount }
-            : { debitAmount: totalAmount }),
-        },
-        queryRunner,
-        true,
-      ),
-    );
     await Promise.all(accountUpdates);
 
-    await queryRunner.manager.save(SaleInventory, inventories);
+    await queryRunner.manager.save(PurchaseInventory, inventories);
 
     savedTransaction.totalAmount = totalAmount;
     await queryRunner.manager.save(savedTransaction);
@@ -148,17 +125,17 @@ export class SaleService {
     };
   }
 
-  private async updateCustomerBalance(
+  private async updateVendorBalance(
     id: string,
     amount: number,
-    type: 'SALE' | 'RETURN',
+    type: 'PURCHASE' | 'RETURN',
     accountUpdates: Promise<any>[] = [],
     queryRunner: QueryRunner,
   ) {
     const tenantId = this.tenantContextService.getTenantId()!;
-    await this.customerService.incrementBalance(
+    await this.vendorService.incrementBalance(
       id,
-      type === 'SALE' ? amount : -amount,
+      type === 'PURCHASE' ? -amount : amount,
       'openingBalance',
     );
 
@@ -174,9 +151,9 @@ export class SaleService {
       this.accountService.update(
         account.id,
         {
-          ...(type === 'SALE'
-            ? { debitAmount: amount }
-            : { creditAmount: amount }),
+          ...(type === 'PURCHASE'
+            ? { creditAmount: amount }
+            : { debitAmount: amount }),
         },
         queryRunner,
         true,
@@ -187,13 +164,13 @@ export class SaleService {
   private async handleInventoryUpdate(
     item: InventoryDto,
     amount: number,
-    type: 'SALE' | 'RETURN',
+    type: 'PURCHASE' | 'RETURN',
     queryRunner: QueryRunner,
     accountUpdates: Promise<any>[] = [],
   ) {
     const tenantId = this.tenantContextService.getTenantId()!;
-    const quantityChange = type === 'SALE' ? -item.quantity : item.quantity;
-    const amountChange = type === 'SALE' ? -amount : amount;
+    const quantityChange = type === 'PURCHASE' ? item.quantity : -item.quantity;
+    const amountChange = type === 'PURCHASE' ? amount : -amount;
 
     const invAccount = await this.redisService.getHash<Inventory>(
       `accountByEntity:${tenantId}:${EntityType.INVENTORY}:${item.id}:regular`,
@@ -207,9 +184,9 @@ export class SaleService {
       this.accountService.update(
         invAccount.id,
         {
-          ...(type === 'SALE'
-            ? { creditAmount: amount }
-            : { debitAmount: amount }),
+          ...(type === 'PURCHASE'
+            ? { debitAmount: amount }
+            : { creditAmount: amount }),
         },
         queryRunner,
         true,
@@ -236,7 +213,7 @@ export class SaleService {
     accountUpdates: Promise<any>[],
     totalTax: number,
     totalDiscount: number,
-    type: 'SALE' | 'RETURN',
+    type: 'PURCHASE' | 'RETURN',
     queryRunner: QueryRunner,
   ) {
     if (totalTax) {
@@ -244,9 +221,9 @@ export class SaleService {
         this.accountService.update(
           String(ACCOUNT_IDS.GST),
           {
-            ...(type === 'SALE'
-              ? { creditAmount: totalTax }
-              : { debitAmount: totalTax }),
+            ...(type === 'PURCHASE'
+              ? { debitAmount: totalTax }
+              : { creditAmount: totalTax }),
           },
           queryRunner,
           true,
@@ -258,9 +235,9 @@ export class SaleService {
         this.accountService.update(
           String(ACCOUNT_IDS.DISCOUNT),
           {
-            ...(type === 'SALE'
-              ? { debitAmount: totalDiscount }
-              : { creditAmount: totalDiscount }),
+            ...(type === 'PURCHASE'
+              ? { creditAmount: totalDiscount }
+              : { debitAmount: totalDiscount }),
           },
           queryRunner,
           true,
@@ -269,25 +246,21 @@ export class SaleService {
     }
   }
 
-  async findAll(filters: Record<string, any>): Promise<Paginated<Sale>> {
+  async findAll(filters: Record<string, any>): Promise<Paginated<Purchase>> {
     const tenantId = this.tenantContextService.getTenantId();
-    const queryBuilder = this.saleRepository
-      .createQueryBuilder('sale')
-      .leftJoinAndSelect('sale.inventories', 'inventories')
-      .leftJoinAndSelect('sale.customer', 'customer')
-      .where('sale.tenant.id = :tenantId', { tenantId });
+    const queryBuilder = this.purchaseRepository
+      .createQueryBuilder('purchase')
+      .leftJoinAndSelect('purchase.inventories', 'inventories')
+      .leftJoinAndSelect('purchase.customer', 'customer')
+      .where('purchase.tenant.id = :tenantId', { tenantId });
 
     const { page, limit } = filters;
 
     const paginated = await paginate(queryBuilder, page, limit);
     paginated.data = paginated.data.map((item) => {
-      const instance = plainToInstance(Sale, item);
+      const instance = plainToInstance(Purchase, item);
       return instance;
     });
     return paginated;
-  }
-
-  async remove(id: string): Promise<void> {
-    await this.saleRepository.delete(id);
   }
 }
