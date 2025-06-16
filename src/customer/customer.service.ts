@@ -1,17 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Customer } from './entity/customer.entity';
-import { CreateCustomerDto } from './dto/create-customer.dto';
-import { UpdateCustomerDto } from './dto/update-customer.dto';
-import { GenericService } from 'src/common/services/generic.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryRunner, Repository } from 'typeorm';
-import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { AccountService } from 'src/account/account.service';
 import { CreateAccountDto } from 'src/account/dto/create-account.dto';
-import { AccountType } from 'src/account/interfaces/account-type.enum';
-import { PARENT_ACCOUNT_IDS } from './constants/cutsomer.constants';
 import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
+import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { EntityType } from 'src/common/enums/entity-type.enum';
+import { GenericService } from 'src/common/services/generic.service';
+import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { QueryRunner, Repository } from 'typeorm';
+import { PARENT_ACCOUNT_IDS } from './constants/cutsomer.constants';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { Customer } from './entity/customer.entity';
 
 @Injectable()
 export class CustomerService extends GenericService<

@@ -10,13 +10,14 @@ export class TransactionService {
     fromAccountId: string,
     toAccountId: string,
     amount: number,
-    queryRunner?: QueryRunner,
+    queryRunner: QueryRunner,
   ) {
     // Debit from one account
     await this.accountService.update(
       fromAccountId,
       { debitAmount: amount },
       queryRunner,
+      true,
     );
 
     // Credit to another account
@@ -24,6 +25,7 @@ export class TransactionService {
       toAccountId,
       { creditAmount: amount },
       queryRunner,
+      true,
     );
   }
 }

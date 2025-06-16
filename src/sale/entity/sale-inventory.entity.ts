@@ -5,7 +5,7 @@ import { Inventory } from 'src/inventory/entity/inventory.entity';
 
 @Entity('sale_inventories')
 export class SaleInventory extends BaseEntity {
-  @ManyToOne(() => Sale)
+  @ManyToOne(() => Sale, (sale) => sale.inventories)
   @JoinColumn({ name: 'sale_id' })
   sale: Sale;
 
@@ -36,6 +36,9 @@ export class SaleInventory extends BaseEntity {
     default: 0,
   })
   discount: number;
+
+  @Column()
+  unit: string;
 
   @Column({
     type: 'decimal',

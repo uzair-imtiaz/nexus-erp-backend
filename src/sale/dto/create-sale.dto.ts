@@ -28,6 +28,10 @@ export class InventoryDto {
   @IsOptional()
   discount?: number;
 
+  @IsString()
+  @IsNotEmpty()
+  unit: string;
+
   @IsNumber()
   @IsPositive()
   @IsOptional()

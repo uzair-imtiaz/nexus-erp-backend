@@ -20,6 +20,7 @@ import { AccountTree } from './interfaces/account-tree.interface';
 import { AccountType } from './interfaces/account-type.enum';
 import { accountColumnNameMap } from './constants/account.constants';
 import { plainToInstance } from 'class-transformer';
+import { RedisService } from 'src/redis/redis.service';
 
 @Injectable()
 export class AccountService {
@@ -28,6 +29,7 @@ export class AccountService {
     private accountRepository: Repository<Account>,
     private dataSource: DataSource,
     private tenantContextService: TenantContextService,
+    private readonly redisService: RedisService,
   ) {}
 
   async create(
@@ -48,6 +50,7 @@ export class AccountService {
       const existingAccount = await queryRunner.manager
         .createQueryBuilder(Account, 'account')
         .where('account.code = :code', { code: input.code })
+        .leftJoinAndSelect('account.parent', 'parent')
         .andWhere(
           new Brackets((qb) => {
             qb.where('account.tenant = :tenantId', { tenantId }).orWhere(
@@ -65,7 +68,7 @@ export class AccountService {
         tenant: { id: tenantId },
       });
 
-      if (input.parentId) {
+      if (input.parentId && input.parentId !== Number(account.parent?.id)) {
         const parent = await queryRunner.manager
           .createQueryBuilder(Account, 'account')
           .where('account.id = :id', { id: input.parentId })
@@ -84,7 +87,7 @@ export class AccountService {
       if (account.debitAmount) {
         await this.propagateAmount(
           queryRunner,
-          account,
+          account.path,
           { type: 'creditAmount' as const, amount: account.creditAmount },
           tenantId,
         );
@@ -93,11 +96,17 @@ export class AccountService {
       if (account.creditAmount) {
         await this.propagateAmount(
           queryRunner,
-          account,
+          account.path,
           { type: 'debitAmount' as const, amount: account.debitAmount },
           tenantId,
         );
       }
+      await this.redisService.setHash(`account:${account.id}`, account);
+      const key = `accountByEntity:${tenantId}:${account.entityType}:${account.entityId}:${
+        account.pathName.includes('General Reserves') ? 'reserves' : 'regular'
+      }`;
+
+      await this.redisService.setHash(key, account);
 
       if (ownQueryRunner) await queryRunner.commitTransaction();
       return account;
@@ -129,8 +138,23 @@ export class AccountService {
     const tenantId = this.tenantContextService.getTenantId()!;
     const accounts = await this.accountRepository.find({
       where: [{ tenant: { id: tenantId } }, { systemGenerated: true }],
+      relations: ['tenant'],
       order: { path: 'ASC' },
     });
+    accounts
+      .filter((account) => account.tenant)
+      .forEach((account) => {
+        const key = `accountByEntity:${tenantId}:${account.entityType}:${account.entityId}:${
+          account.pathName.includes('General Reserves') ? 'reserves' : 'regular'
+        }`;
+
+        this.redisService.setHash(key, account);
+      });
+
+    accounts.map((account) => {
+      this.redisService.setHash(`account:${account.id}`, account);
+    });
+
     const instance = plainToInstance(Account, accounts);
     return this.buildTree(instance);
   }
@@ -140,6 +164,7 @@ export class AccountService {
     id: string,
     input: UpdateAccountDto,
     queryRunner?: QueryRunner,
+    increment: boolean = false,
   ): Promise<Account> {
     let ownQueryRunner = false;
     const tenantId = this.tenantContextService.getTenantId()!;
@@ -152,53 +177,80 @@ export class AccountService {
     }
 
     try {
-      const account = await queryRunner.manager
-        .createQueryBuilder(Account, 'account')
-        .where('account.id = :id', { id })
-        .andWhere(
-          new Brackets((qb) => {
-            qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
-              'account.system_generated = true',
-            );
-          }),
-        )
-        .getOne();
+      // Fetch the existing account data from Redis cache
+      const account = await this.redisService.getHash<Account>(`account:${id}`);
 
-      if (!account) {
-        throw new NotFoundException('Account not found');
-      }
+      if (!account) throw new NotFoundException(`Account:${id} not found`);
 
-      const oldCredit = account.creditAmount ?? 0;
-      const oldDebit = account.debitAmount ?? 0;
+      // Parse old credit and debit amounts, defaulting to 0 if undefined
+      const oldCredit = Number(account.creditAmount ?? 0);
+      const oldDebit = Number(account.debitAmount ?? 0);
 
+      // If parentId is provided, update the parent relationship in DB
       if (input.parentId) {
-        const parent = await queryRunner.manager
-          .createQueryBuilder(Account, 'account')
-          .where('account.id = :id', { id: input.parentId })
+        await queryRunner.manager
+          .createQueryBuilder()
+          .update(Account)
+          .set({ parent: { id: input.parentId } })
+          .where('id = :id', { id })
           .andWhere(
             new Brackets((qb) => {
-              qb.where('account.tenant = :tenantId', { tenantId }).orWhere(
-                'account.system_generated = true',
+              qb.where('tenantId = :tenantId', { tenantId }).orWhere(
+                'system_generated = true',
               );
             }),
           )
-          .getOneOrFail();
-        account.parent = parent;
+          .execute();
       }
 
-      Object.assign(account, input);
-      await queryRunner.manager.save(account);
+      // Separate parentId from other fields to update
+      const { parentId, ...fieldsToUpdate } = input;
 
-      const newCredit = account.creditAmount ?? 0;
-      const newDebit = account.debitAmount ?? 0;
+      // Determine the updated credit and debit amounts based on increment flag
+      let updatedCredit = oldCredit;
+      let updatedDebit = oldDebit;
 
-      const creditDelta = newCredit - oldCredit;
-      const debitDelta = newDebit - oldDebit;
+      if (fieldsToUpdate.creditAmount !== undefined) {
+        updatedCredit = increment
+          ? oldCredit + Number(fieldsToUpdate.creditAmount)
+          : Number(fieldsToUpdate.creditAmount);
+      }
+
+      if (fieldsToUpdate.debitAmount !== undefined) {
+        updatedDebit = increment
+          ? oldDebit + Number(fieldsToUpdate.debitAmount)
+          : Number(fieldsToUpdate.debitAmount);
+      }
+
+      // Update the Account entity in the database with the new values
+      await queryRunner.manager
+        .createQueryBuilder()
+        .update(Account)
+        .set({
+          ...fieldsToUpdate,
+          creditAmount: updatedCredit,
+          debitAmount: updatedDebit,
+        })
+        .where('id = :id', { id })
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where('tenantId = :tenantId', { tenantId }).orWhere(
+              'system_generated = true',
+            );
+          }),
+        )
+        .execute();
+
+      // Calculate the differences (deltas) for propagation
+      const creditDelta = updatedCredit - oldCredit;
+      const debitDelta = updatedDebit - oldDebit;
+
+      const path = account.path;
 
       if (creditDelta !== 0) {
         await this.propagateAmount(
           queryRunner,
-          account,
+          path,
           { type: 'creditAmount', amount: creditDelta },
           tenantId,
         );
@@ -207,14 +259,36 @@ export class AccountService {
       if (debitDelta !== 0) {
         await this.propagateAmount(
           queryRunner,
-          account,
+          path,
           { type: 'debitAmount', amount: debitDelta },
           tenantId,
         );
       }
 
+      await this.redisService.setMHash(`account:${id}`, {
+        ...fieldsToUpdate,
+        creditAmount: updatedCredit,
+        debitAmount: updatedDebit,
+      });
+
+      await this.redisService.setMHash(
+        `accountByEntity:${tenantId}:${account.entityType}:${account.entityId}:`,
+        {
+          ...fieldsToUpdate,
+          creditAmount: updatedCredit,
+          debitAmount: updatedDebit,
+        },
+      );
+
       if (ownQueryRunner) await queryRunner.commitTransaction();
-      return account;
+
+      return {
+        id,
+        ...fieldsToUpdate,
+        creditAmount: updatedCredit,
+        debitAmount: updatedDebit,
+        path,
+      } as unknown as Account;
     } catch (error) {
       if (ownQueryRunner) await queryRunner.rollbackTransaction();
       throw error;
@@ -281,7 +355,7 @@ export class AccountService {
         if (totalCredit !== 0) {
           await this.propagateAmount(
             queryRunner,
-            account,
+            account.path,
             { type: 'creditAmount', amount: -totalCredit },
             tenantId,
           );
@@ -290,12 +364,18 @@ export class AccountService {
         if (totalDebit !== 0) {
           await this.propagateAmount(
             queryRunner,
-            account,
+            account.path,
             { type: 'debitAmount', amount: -totalDebit },
             tenantId,
           );
         }
       }
+      await this.redisService.deleteHash(`account:${id}`);
+      const key = `accountByEntity:${tenantId}:${account.entityType}:${account.entityId}:${
+        account.pathName.includes('General Reserves') ? 'reserves' : 'regular'
+      }`;
+
+      await this.redisService.deleteHash(key);
       if (ownQueryRunner) await queryRunner.commitTransaction();
     } catch (error) {
       if (ownQueryRunner) await queryRunner.rollbackTransaction();
@@ -305,15 +385,55 @@ export class AccountService {
     }
   }
 
+  async credit(id: string, amount: number, queryRunner: QueryRunner) {
+    const tenantId = this.tenantContextService.getTenantId()!;
+    const repo = queryRunner.manager.getRepository(Account);
+    await repo.increment({ id }, 'creditAmount', amount);
+    const account = await this.redisService.getHash<Account>(`account:${id}`);
+    if (!account) {
+      throw new NotFoundException('Account not found');
+    }
+    await this.propagateAmount(
+      queryRunner,
+      account.path,
+      {
+        type: 'creditAmount',
+        amount,
+      },
+      tenantId,
+    );
+    return account;
+  }
+
+  async debit(id: string, amount: number, queryRunner: QueryRunner) {
+    const tenantId = this.tenantContextService.getTenantId()!;
+    const repo = queryRunner.manager.getRepository(Account);
+    await repo.increment({ id }, 'debitAmount', amount);
+    const account = await this.redisService.getHash<Account>(`account:${id}`);
+    if (!account) {
+      throw new NotFoundException('Account not found');
+    }
+    await this.propagateAmount(
+      queryRunner,
+      account.path,
+      {
+        type: 'debitAmount',
+        amount,
+      },
+      tenantId,
+    );
+    return account;
+  }
+
   // Helper: Propagate amount changes to ancestors
   private async propagateAmount(
     queryRunner: QueryRunner,
-    account: Account,
+    path: string,
     amountData: { type: 'debitAmount' | 'creditAmount'; amount: number },
     tenantId: string,
   ) {
     try {
-      const ancestorCodes = account.path.split('/').slice(0, -1);
+      const ancestorCodes = String(path).split('/')?.slice(0, -1);
       const { type, amount } = amountData;
       if (ancestorCodes.length > 0) {
         await queryRunner.manager
@@ -422,12 +542,19 @@ export class AccountService {
     entityType: string,
   ): Promise<Account[] | null> {
     const tenantId = this.tenantContextService.getTenantId();
-    return this.accountRepository.find({
+    const x = this.accountRepository.find({
       where: {
         entityId,
         entityType,
         tenant: { id: tenantId },
       },
     });
+    const start = performance.now();
+    this.redisService.set(
+      `account:${entityId}:${entityType}`,
+      JSON.stringify(x),
+    );
+    console.log('save in redis took', performance.now() - start, 'ms');
+    return x;
   }
 }

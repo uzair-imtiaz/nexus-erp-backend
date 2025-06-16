@@ -1,21 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { TenantContextService } from 'src/tenant/tenant-context.service';
-import { Sale } from './entity/sale.entity';
-import { QueryRunner, Repository } from 'typeorm';
-import { AccountService } from 'src/account/account.service';
-import { CreateSaleDto, InventoryDto } from './dto/create-sale.dto';
-import { paginate, Paginated } from 'src/common/utils/paginate';
 import { plainToInstance } from 'class-transformer';
-import { CustomerService } from 'src/customer/customer.service';
-import { UpdateCustomerDto } from 'src/customer/dto/update-customer.dto';
-import { InventoryService } from 'src/inventory/inventory.service';
+import { AccountService } from 'src/account/account.service';
 import { EntityType } from 'src/common/enums/entity-type.enum';
-import { AccountManagerService } from 'src/common/services/account-manager.service';
-import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
+import { paginate, Paginated } from 'src/common/utils/paginate';
+import { CustomerService } from 'src/customer/customer.service';
+import { Customer } from 'src/customer/entity/customer.entity';
+import { Inventory } from 'src/inventory/entity/inventory.entity';
+import { InventoryService } from 'src/inventory/inventory.service';
+import { RedisService } from 'src/redis/redis.service';
+import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { QueryRunner, Repository } from 'typeorm';
 import { ACCOUNT_IDS } from './constants/sale.constants';
-import { TransactionService } from 'src/common/services/transaction.service';
+import { CreateSaleDto, InventoryDto } from './dto/create-sale.dto';
 import { SaleInventory } from './entity/sale-inventory.entity';
+import { Sale } from './entity/sale.entity';
 
 @Injectable()
 export class SaleService {
@@ -27,8 +26,7 @@ export class SaleService {
     private readonly customerService: CustomerService,
     private readonly inventoryService: InventoryService,
     private readonly accountService: AccountService,
-    private readonly transactionService: TransactionService,
-    private readonly accountManagerService: AccountManagerService,
+    private readonly redisService: RedisService,
   ) {}
   // Public API
   async createSale(
@@ -50,7 +48,7 @@ export class SaleService {
     type: 'SALE' | 'RETURN',
     queryRunner: QueryRunner,
   ): Promise<Sale> {
-    const tenantId = this.tenantContextService.getTenantId();
+    const tenantId = this.tenantContextService.getTenantId()!;
 
     let totalAmount = 0;
     let totalTax = 0;
@@ -66,7 +64,6 @@ export class SaleService {
       date: dto.date,
       totalAmount: 0,
       type,
-      inventories: dto.items,
     });
     const savedTransaction = await queryRunner.manager.save(saleToSave);
 
@@ -78,29 +75,42 @@ export class SaleService {
 
       await this.handleInventoryUpdate(item, amount, type, queryRunner);
 
-      this.prepareAccountTransaction(
-        item,
-        amount,
-        dto,
-        type,
-        accountUpdates,
-        queryRunner,
-      );
-
       inventories.push(
         this.saleInventoryRepository.create({
-          sale: { id: savedTransaction.id },
+          sale: savedTransaction,
           inventory: { id: item.id },
           quantity: item.quantity,
           rate: item.rate,
           discount: discount,
           tax: tax,
+          unit: item.unit,
           tenant: { id: tenantId },
         }),
       );
     }
 
-    // Tax and Discount transactions
+    accountUpdates.push(
+      this.accountService.update(
+        String(ACCOUNT_IDS.COST),
+        {
+          ...(type === 'SALE'
+            ? { debitAmount: totalAmount }
+            : { creditAmount: totalAmount }),
+        },
+        queryRunner,
+        true,
+      ),
+    );
+
+    const netAmount = totalAmount + totalTax - totalDiscount;
+    await this.updateCustomerBalance(
+      dto.customerId,
+      netAmount,
+      type,
+      accountUpdates,
+      queryRunner,
+    );
+
     this.addTaxAndDiscountTransactions(
       accountUpdates,
       dto,
@@ -108,16 +118,6 @@ export class SaleService {
       totalDiscount,
       type,
       queryRunner,
-    );
-
-    // Final net amount
-    const netAmount = totalAmount + totalTax - totalDiscount;
-    await this.updateCustomerBalance(
-      dto.customerId,
-      netAmount,
-      queryRunner,
-      accountUpdates,
-      type,
     );
 
     accountUpdates.push(
@@ -129,11 +129,12 @@ export class SaleService {
             : { debitAmount: totalAmount }),
         },
         queryRunner,
+        true,
       ),
     );
-
     await Promise.all(accountUpdates);
-    await queryRunner.manager.save(inventories);
+
+    await queryRunner.manager.save(SaleInventory, inventories);
 
     savedTransaction.totalAmount = totalAmount;
     await queryRunner.manager.save(savedTransaction);
@@ -151,27 +152,35 @@ export class SaleService {
   private async updateCustomerBalance(
     id: string,
     amount: number,
-    queryRunner: QueryRunner,
-    accountUpdates: Promise<any>[],
     type: 'SALE' | 'RETURN',
+    accountUpdates: Promise<any>[] = [],
+    queryRunner: QueryRunner,
   ) {
+    const tenantId = this.tenantContextService.getTenantId()!;
     await this.customerService.incrementBalance(
       id,
       type === 'SALE' ? amount : -amount,
       'openingBalance',
     );
 
-    const account = await this.accountManagerService.getValidAccountByEntityId(
-      id,
-      EntityType.CUSTOMER,
+    const account = await this.redisService.getHash<Customer>(
+      `accountByEntity:${tenantId}:${EntityType.CUSTOMER}:${id}:regular`,
     );
 
+    if (!account) {
+      throw new NotFoundException('Customer account not found');
+    }
+
     accountUpdates.push(
-      this.transactionService.postTransaction(
-        type === 'SALE' ? String(ACCOUNT_IDS.SALE) : account.id,
-        type === 'SALE' ? account.id : String(ACCOUNT_IDS.SALE),
-        amount,
+      this.accountService.update(
+        account.id,
+        {
+          ...(type === 'SALE'
+            ? { debitAmount: amount }
+            : { creditAmount: amount }),
+        },
         queryRunner,
+        true,
       ),
     );
   }
@@ -181,56 +190,47 @@ export class SaleService {
     amount: number,
     type: 'SALE' | 'RETURN',
     queryRunner: QueryRunner,
+    accountUpdates: Promise<any>[] = [],
   ) {
+    const tenantId = this.tenantContextService.getTenantId()!;
     const quantityChange = type === 'SALE' ? -item.quantity : item.quantity;
     const amountChange = type === 'SALE' ? -amount : amount;
-    await this.inventoryService.incrementBalance(
-      item.id,
-      quantityChange,
-      'quantity',
-      queryRunner,
-    );
-    await this.inventoryService.incrementBalance(
-      item.id,
-      amountChange,
-      'amount',
-      queryRunner,
-    );
-  }
 
-  private async prepareAccountTransaction(
-    item: InventoryDto,
-    amount: number,
-    dto: CreateSaleDto,
-    type: 'SALE' | 'RETURN',
-    accountUpdates: Promise<any>[],
-    queryRunner: QueryRunner,
-  ) {
-    const inventoryAccount =
-      await this.accountManagerService.getValidAccountByEntityId(
-        item.id,
-        EntityType.INVENTORY,
-      );
-    const fromAccountId =
-      type === 'SALE' ? dto.customerId : inventoryAccount.id;
-    const toAccountId = type === 'SALE' ? inventoryAccount.id : dto.customerId;
+    const invAccount = await this.redisService.getHash<Inventory>(
+      `accountByEntity:${tenantId}:${EntityType.INVENTORY}:${item.id}:regular`,
+    );
+
+    if (!invAccount) {
+      throw new NotFoundException('Inventory account not found');
+    }
+
     accountUpdates.push(
-      this.transactionService.postTransaction(
-        fromAccountId,
-        toAccountId,
-        amount,
-        queryRunner,
-      ),
       this.accountService.update(
-        String(ACCOUNT_IDS.COST),
+        invAccount.id,
         {
           ...(type === 'SALE'
-            ? { debitAmount: amount }
-            : { creditAmount: amount }),
+            ? { creditAmount: amount }
+            : { debitAmount: amount }),
         },
         queryRunner,
+        true,
       ),
     );
+
+    await Promise.all([
+      this.inventoryService.incrementBalance(
+        item.id,
+        quantityChange,
+        'quantity',
+        queryRunner,
+      ),
+      this.inventoryService.incrementBalance(
+        item.id,
+        amountChange,
+        'amount',
+        queryRunner,
+      ),
+    ]);
   }
 
   private addTaxAndDiscountTransactions(
@@ -243,21 +243,29 @@ export class SaleService {
   ) {
     if (totalTax) {
       accountUpdates.push(
-        this.transactionService.postTransaction(
-          type === 'SALE' ? dto.customerId : String(ACCOUNT_IDS.GST),
-          type === 'SALE' ? String(ACCOUNT_IDS.GST) : dto.customerId,
-          totalTax,
+        this.accountService.update(
+          String(ACCOUNT_IDS.GST),
+          {
+            ...(type === 'SALE'
+              ? { creditAmount: totalTax }
+              : { debitAmount: totalTax }),
+          },
           queryRunner,
+          true,
         ),
       );
     }
     if (totalDiscount) {
       accountUpdates.push(
-        this.transactionService.postTransaction(
-          type === 'SALE' ? String(ACCOUNT_IDS.DISCOUNT) : dto.customerId,
-          type === 'SALE' ? dto.customerId : String(ACCOUNT_IDS.DISCOUNT),
-          totalDiscount,
+        this.accountService.update(
+          String(ACCOUNT_IDS.DISCOUNT),
+          {
+            ...(type === 'SALE'
+              ? { debitAmount: totalDiscount }
+              : { creditAmount: totalDiscount }),
+          },
           queryRunner,
+          true,
         ),
       );
     }
@@ -268,6 +276,7 @@ export class SaleService {
     const queryBuilder = this.saleRepository
       .createQueryBuilder('sale')
       .leftJoinAndSelect('sale.inventories', 'inventories')
+      .leftJoinAndSelect('sale.customer', 'customer')
       .where('sale.tenant.id = :tenantId', { tenantId });
 
     const { page, limit } = filters;
@@ -279,10 +288,6 @@ export class SaleService {
     });
     return paginated;
   }
-
-  //   async findOne(id: string): Promise<Sale> {
-  //     return await this.saleRepository.findOneBy({ id });
-  //   }
 
   async remove(id: string): Promise<void> {
     await this.saleRepository.delete(id);
