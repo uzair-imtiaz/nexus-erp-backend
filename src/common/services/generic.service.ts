@@ -85,14 +85,19 @@ export class GenericService<
     return existingContact;
   }
 
-  async update(id: string, data: UpdateDto, runner?: QueryRunner) {
+  async update(
+    id: string,
+    data: UpdateDto,
+    runner?: QueryRunner,
+    accountToUpdate?: 'credit' | 'debit',
+  ): Promise<T> {
     const existingContact = await this.findOne(id);
     const updated = this.repository.merge(
       existingContact,
       data as DeepPartial<T>,
     );
     const saved = await this.repository.save(updated);
-    await this.afterUpdate(saved, runner);
+    await this.afterUpdate(saved, runner, accountToUpdate);
     return saved;
   }
 
@@ -108,6 +113,10 @@ export class GenericService<
   }
 
   protected async afterCreate(entity: T, runner?: QueryRunner): Promise<void> {}
-  protected async afterUpdate(entity: T, runner?: QueryRunner): Promise<void> {}
+  protected async afterUpdate(
+    entity: T,
+    runner?: QueryRunner,
+    accountToUpdate?: 'credit' | 'debit',
+  ): Promise<void> {}
   protected async afterDelete(entity: T, runner?: QueryRunner): Promise<void> {}
 }

@@ -33,7 +33,7 @@ export class Account extends BaseEntity {
     type: 'enum',
     enum: EntityType,
   })
-  entityType: string;
+  entityType?: string;
 
   @Column({ nullable: true, name: 'entity_id' })
   entityId: string;

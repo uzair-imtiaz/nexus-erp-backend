@@ -21,16 +21,32 @@ export class EntityServiceManager {
   ) {
     switch (entityType) {
       case EntityType.VENDOR:
-        await this.vendorService.incrementBalance(entityId, amount);
+        await this.vendorService.incrementBalance(
+          entityId,
+          amount,
+          'openingBalance',
+        );
         break;
       case EntityType.CUSTOMER:
-        await this.customerService.incrementBalance(entityId, amount);
+        await this.customerService.incrementBalance(
+          entityId,
+          amount,
+          'openingBalance',
+        );
         break;
       case EntityType.INVENTORY:
-        await this.inventoryService.incrementBalance(entityId, amount);
+        await this.inventoryService.incrementBalance(
+          entityId,
+          amount,
+          'amount',
+        );
         break;
       case EntityType.BANK:
-        await this.bankService.incrementBalance(entityId, amount);
+        await this.bankService.incrementBalance(
+          entityId,
+          amount,
+          'currentBalance',
+        );
         break;
       default:
         throw new BadRequestException('Invalid entity type');

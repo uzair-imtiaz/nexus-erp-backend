@@ -1,17 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Customer } from './entity/customer.entity';
-import { CreateCustomerDto } from './dto/create-customer.dto';
-import { UpdateCustomerDto } from './dto/update-customer.dto';
-import { GenericService } from 'src/common/services/generic.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryRunner, Repository } from 'typeorm';
-import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { AccountService } from 'src/account/account.service';
 import { CreateAccountDto } from 'src/account/dto/create-account.dto';
-import { AccountType } from 'src/account/interfaces/account-type.enum';
-import { PARENT_ACCOUNT_IDS } from './constants/cutsomer.constants';
 import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
+import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { EntityType } from 'src/common/enums/entity-type.enum';
+import { GenericService } from 'src/common/services/generic.service';
+import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { QueryRunner, Repository } from 'typeorm';
+import { PARENT_ACCOUNT_IDS } from './constants/cutsomer.constants';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { Customer } from './entity/customer.entity';
 
 @Injectable()
 export class CustomerService extends GenericService<
@@ -28,8 +28,8 @@ export class CustomerService extends GenericService<
     super(customerRepository, tenantContextService, 'customer');
   }
 
-  async incrementBalance(id: string, amount: number) {
-    await this.customerRepository.increment({ id }, 'openingBalance', amount);
+  async incrementBalance(id: string, amount: number, column: string) {
+    await this.customerRepository.increment({ id }, column, amount);
   }
 
   protected async afterCreate(
@@ -62,6 +62,7 @@ export class CustomerService extends GenericService<
   protected async afterUpdate(
     entity: Customer,
     runner?: QueryRunner,
+    accountToUpdate: 'credit' | 'debit' | undefined = undefined,
   ): Promise<void> {
     const accounts = await this.accountService.findByEntityIdAndType(
       entity.id,
@@ -74,22 +75,35 @@ export class CustomerService extends GenericService<
       );
     }
 
-    await Promise.all(
-      accounts.map((account) => {
-        const data: UpdateAccountDto = {
-          ...account,
-          entityType: EntityType.CUSTOMER,
-          name: entity.name,
-        };
-        if (Number(account.debitAmount)) {
-          data['debitAmount'] = entity.openingBalance;
-        }
-        if (Number(account.creditAmount)) {
-          data['creditAmount'] = entity.openingBalance;
-        }
-        return this.accountService.update(account.id, data, runner);
-      }),
-    );
+    if (!accountToUpdate) {
+      await Promise.all(
+        accounts.map((account) => {
+          const data: UpdateAccountDto = {
+            ...account,
+            entityType: EntityType.CUSTOMER,
+            name: entity.name,
+          };
+          if (Number(account.debitAmount)) {
+            data['debitAmount'] = entity.openingBalance;
+          }
+          if (Number(account.creditAmount)) {
+            data['creditAmount'] = entity.openingBalance;
+          }
+          return this.accountService.update(account.id, data, runner);
+        }),
+      );
+    } else {
+      const account = accounts.find(
+        (account) => !account.pathName.includes('General Reserves'),
+      )!;
+      const data: UpdateAccountDto = {
+        ...account,
+        entityType: EntityType.CUSTOMER,
+        name: entity.name,
+      };
+      data[`${accountToUpdate}Amount`] = entity.openingBalance;
+      await this.accountService.update(account.id, data, runner);
+    }
   }
 
   protected async afterDelete(

@@ -16,8 +16,10 @@ import { Account } from './entity/account.entity';
 import { AccountTree } from './interfaces/account-tree.interface';
 import { AccountType } from './interfaces/account-type.enum';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { TenantGuard } from 'src/tenant/guards/tenant.guard';
 
 @Controller('accounts')
+@UseGuards(TenantGuard)
 @UseGuards(JwtAuthGuard)
 export class AccountController {
   constructor(private readonly AccountService: AccountService) {}

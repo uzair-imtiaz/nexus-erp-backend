@@ -191,7 +191,7 @@ export class BankService {
     return instance;
   }
 
-  async incrementBalance(id: string, amount: number) {
-    await this.bankRepository.increment({ id }, 'currentBalance', amount);
+  async incrementBalance(id: string, amount: number, column: string) {
+    await this.bankRepository.increment({ id }, column, amount);
   }
 }

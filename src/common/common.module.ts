@@ -1,13 +1,21 @@
 import { Module } from '@nestjs/common';
-import { EntityServiceManager } from './services/entity-service-manager.service';
-import { VendorModule } from 'src/vendor/vendor.module';
-import { InventoryModule } from 'src/inventory/inventory.module';
-import { CustomerModule } from 'src/customer/customer.module';
+import { AccountModule } from 'src/account/account.module';
 import { BankModule } from 'src/bank/bank.module';
+import { CustomerModule } from 'src/customer/customer.module';
+import { InventoryModule } from 'src/inventory/inventory.module';
+import { VendorModule } from 'src/vendor/vendor.module';
+import { AccountManagerService } from './services/account-manager.service';
+import { EntityServiceManager } from './services/entity-service-manager.service';
 
 @Module({
-  imports: [VendorModule, InventoryModule, CustomerModule, BankModule],
-  providers: [EntityServiceManager],
-  exports: [EntityServiceManager],
+  imports: [
+    VendorModule,
+    InventoryModule,
+    CustomerModule,
+    BankModule,
+    AccountModule,
+  ],
+  providers: [EntityServiceManager, AccountManagerService],
+  exports: [EntityServiceManager, AccountManagerService],
 })
 export class CommonModule {}

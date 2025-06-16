@@ -25,104 +25,104 @@ export const seedAccounts = async (dataSource: DataSource) => {
   // Level 1: ACCOUNT_GROUP
   const equity = await createAccount(
     'Equity',
-    '1000',
+    '100000',
     AccountType.ACCOUNT_GROUP,
   );
   const liabilities = await createAccount(
     'Liabilities',
-    '2000',
+    '200000',
     AccountType.ACCOUNT_GROUP,
   );
   const revenue = await createAccount(
     'Revenue',
-    '3000',
+    '300000',
     AccountType.ACCOUNT_GROUP,
   );
   const assets = await createAccount(
     'Assets',
-    '4000',
+    '400000',
     AccountType.ACCOUNT_GROUP,
   );
   const expenses = await createAccount(
     'Expenses',
-    '5000',
+    '500000',
     AccountType.ACCOUNT_GROUP,
   );
 
   // Level 2: ACCOUNT_TYPE
   const generalReserves = await createAccount(
     'General Reserves',
-    '1100',
+    '110000',
     AccountType.ACCOUNT_TYPE,
     equity,
   );
   const profitAccount = await createAccount(
     'Profit Account',
-    '1200',
+    '120000',
     AccountType.ACCOUNT_TYPE,
     equity,
   );
   const partnerShare = await createAccount(
     'Partner Share',
-    '1300',
+    '130000',
     AccountType.ACCOUNT_TYPE,
     equity,
   );
 
   const currentLiabilities = await createAccount(
     'Current Liabilities',
-    '2100',
+    '210000',
     AccountType.ACCOUNT_TYPE,
     liabilities,
   );
   const nonCurrentLiabilities = await createAccount(
     'Non-Current Liabilities',
-    '2200',
+    '220000',
     AccountType.ACCOUNT_TYPE,
     liabilities,
   );
 
   const tradeRevenue = await createAccount(
     'Trade Revenue',
-    '3100',
+    '310000',
     AccountType.ACCOUNT_TYPE,
     revenue,
   );
   const otherIncome = await createAccount(
     'Other Income',
-    '3200',
+    '320000',
     AccountType.ACCOUNT_TYPE,
     revenue,
   );
 
   const currentAssets = await createAccount(
     'Current Assets',
-    '4100',
+    '410000',
     AccountType.ACCOUNT_TYPE,
     assets,
   );
   const nonCurrentAssets = await createAccount(
     'Non-Current Assets',
-    '4200',
+    '420000',
     AccountType.ACCOUNT_TYPE,
     assets,
   );
 
   const operatingExpenses = await createAccount(
     'Operating Expenses',
-    '5100',
+    '510000',
     AccountType.ACCOUNT_TYPE,
     expenses,
   );
   const nonOperatingExpenses = await createAccount(
     'Non-operating Expenses',
-    '5200',
+    '520000',
     AccountType.ACCOUNT_TYPE,
     expenses,
   );
   const otherExpenses = await createAccount(
     'Other Expenses',
-    '5300',
+    '530000',
     AccountType.ACCOUNT_TYPE,
     expenses,
   );
@@ -131,40 +131,40 @@ export const seedAccounts = async (dataSource: DataSource) => {
   // Under Current Assets
   await createAccount(
     'Cash & Bank',
-    '4110',
+    '411000',
     AccountType.ACCOUNT,
     currentAssets,
   );
   await createAccount(
     'Stock In Hand',
-    '4120',
+    '412000',
     AccountType.ACCOUNT,
     currentAssets,
   );
   await createAccount(
     'Trade Receivables',
-    '4130',
+    '413000',
     AccountType.ACCOUNT,
     currentAssets,
   );
 
   // Under Non-Current Assets
-  await createAccount('Land', '4210', AccountType.ACCOUNT, nonCurrentAssets);
+  await createAccount('Land', '421000', AccountType.ACCOUNT, nonCurrentAssets);
   await createAccount(
     'Building',
-    '4220',
+    '422000',
     AccountType.ACCOUNT,
     nonCurrentAssets,
   );
   await createAccount(
     'Machinery',
-    '4230',
+    '423000',
     AccountType.ACCOUNT,
     nonCurrentAssets,
   );
   await createAccount(
     'Long-Term Investments',
-    '4240',
+    '424000',
     AccountType.ACCOUNT,
     nonCurrentAssets,
   );
@@ -172,25 +172,25 @@ export const seedAccounts = async (dataSource: DataSource) => {
   // Under General Reserves
   await createAccount(
     'Bank Openings',
-    '1110',
+    '111000',
     AccountType.ACCOUNT,
     generalReserves,
   );
   await createAccount(
     'Customer Openings',
-    '1120',
+    '112000',
     AccountType.ACCOUNT,
     generalReserves,
   );
   await createAccount(
     'Stock Openings',
-    '1130',
+    '113000',
     AccountType.ACCOUNT,
     generalReserves,
   );
   await createAccount(
     'Supplier Openings',
-    '1140',
+    '114000',
     AccountType.ACCOUNT,
     generalReserves,
   );
@@ -198,25 +198,25 @@ export const seedAccounts = async (dataSource: DataSource) => {
   // Under Current Liabilities
   await createAccount(
     'Trade Payables',
-    '2110',
+    '211000',
     AccountType.ACCOUNT,
     currentLiabilities,
   );
   await createAccount(
     'Short-term Loan',
-    '2120',
+    '212000',
     AccountType.ACCOUNT,
     currentLiabilities,
   );
   await createAccount(
     'Salaries Payable',
-    '2130',
+    '213000',
     AccountType.ACCOUNT,
     currentLiabilities,
   );
-  await createAccount(
+  const taxPayables = await createAccount(
     'Taxes Payable',
-    '2140',
+    '214000',
     AccountType.ACCOUNT,
     currentLiabilities,
   );
@@ -224,16 +224,85 @@ export const seedAccounts = async (dataSource: DataSource) => {
   // Under Non-Current Liabilities
   await createAccount(
     'Long-term Loans',
-    '2210',
+    '221000',
     AccountType.ACCOUNT,
     nonCurrentLiabilities,
   );
   await createAccount(
     'Long-term Leases',
-    '2220',
+    '222000',
     AccountType.ACCOUNT,
     nonCurrentLiabilities,
   );
 
+  await createAccount(
+    'General Sales Tax',
+    '214100',
+    AccountType.SUB_ACCOUNT,
+    taxPayables,
+  );
+
+  const discount = await createAccount(
+    'Discount',
+    '330000',
+    AccountType.ACCOUNT_TYPE,
+    revenue,
+  );
+
+  const discountAllowed = await createAccount(
+    'Discount Allowed',
+    '331000',
+    AccountType.ACCOUNT,
+    discount,
+  );
+
+  const discountReceived = await createAccount(
+    'Discount Received',
+    '332000',
+    AccountType.ACCOUNT,
+    discount,
+  );
+
+  await createAccount(
+    'Discount on Invoice',
+    '331100',
+    AccountType.SUB_ACCOUNT,
+    discountAllowed,
+  );
+
+  await createAccount(
+    'Discount on Purchase',
+    '332100',
+    AccountType.SUB_ACCOUNT,
+    discountReceived,
+  );
+
+  const costOfSales = await createAccount(
+    'Cost of Sales',
+    '511000',
+    AccountType.ACCOUNT,
+    operatingExpenses,
+  );
+
+  await createAccount(
+    'Cost from Product Sale',
+    '511100',
+    AccountType.SUB_ACCOUNT,
+    costOfSales,
+  );
+
+  const sales = await createAccount(
+    'Sales',
+    '311000',
+    AccountType.ACCOUNT,
+    tradeRevenue,
+  );
+
+  await createAccount(
+    'Sales of Product Income',
+    '311100',
+    AccountType.SUB_ACCOUNT,
+    sales,
+  );
   console.log('✅ Account chart of accounts seeded.');
 };

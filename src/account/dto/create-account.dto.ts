@@ -24,7 +24,7 @@ export class CreateAccountDto {
   type: AccountType;
 
   @ValidateIf((o) => o.type === AccountType.SUB_ACCOUNT)
-  @IsNotEmpty()
+  @IsOptional()
   @IsEnum(EntityType)
   entityType?: EntityType;
 
@@ -37,7 +37,7 @@ export class CreateAccountDto {
   creditAmount?: number;
 
   @ValidateIf((o) => o.type === AccountType.SUB_ACCOUNT)
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   @Transform(({ value }) =>
     value !== null && value !== undefined ? String(value) : value,
