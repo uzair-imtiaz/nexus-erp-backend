@@ -180,6 +180,21 @@ export class PurchaseService {
       throw new NotFoundException('Inventory account not found');
     }
 
+    const inventory = await this.inventoryService.findOne(item.id);
+    if (!inventory) {
+      throw new NotFoundException('Inventory not found');
+    }
+
+    const newQuantity = inventory.quantity + quantityChange;
+    const newAmount = inventory.amount + amountChange;
+
+    await this.inventoryService.update(item.id, {
+      quantity: newQuantity,
+      amount: newAmount,
+      baseRate:
+        (inventory.quantity * inventory.baseRate + newQuantity * item.rate) /
+        (inventory.quantity + newQuantity),
+    });
     accountUpdates.push(
       this.accountService.update(
         invAccount.id,
@@ -251,7 +266,7 @@ export class PurchaseService {
     const queryBuilder = this.purchaseRepository
       .createQueryBuilder('purchase')
       .leftJoinAndSelect('purchase.inventories', 'inventories')
-      .leftJoinAndSelect('purchase.customer', 'customer')
+      .leftJoinAndSelect('purchase.vendor', 'vendor')
       .where('purchase.tenant.id = :tenantId', { tenantId });
 
     const { page, limit } = filters;

@@ -22,6 +22,7 @@ import { accountColumnNameMap } from './constants/account.constants';
 import { plainToInstance } from 'class-transformer';
 import { RedisService } from 'src/redis/redis.service';
 import { getKeyForRedis } from 'src/common/utils';
+import { paginate, Paginated } from 'src/common/utils/paginate';
 
 @Injectable()
 export class AccountService {
@@ -117,9 +118,12 @@ export class AccountService {
     }
   }
 
-  async findByType(type: AccountType): Promise<Account[]> {
+  async findByType(
+    type: AccountType,
+    filters: Record<string, any>,
+  ): Promise<Paginated<Account>> {
     const tenantId = this.tenantContextService.getTenantId();
-    const accounts = await this.accountRepository
+    const queryBuilder = this.accountRepository
       .createQueryBuilder('account')
       .where('account.type = :type', { type })
       .andWhere(
@@ -128,9 +132,21 @@ export class AccountService {
             'account.system_generated = true',
           );
         }),
-      )
-      .getMany();
-    return accounts;
+      );
+
+    const { page, limit } = filters;
+    const ALLOWED_FILTERS = ['name'];
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && ALLOWED_FILTERS.includes(key)) {
+        queryBuilder.andWhere(`account.${key} ILIKE :${key}`, {
+          [key]: `%${value}%`,
+        });
+      }
+    });
+
+    const paginated = await paginate<Account>(queryBuilder, page, limit);
+    return paginated;
   }
 
   async findAll(): Promise<AccountTree[]> {
