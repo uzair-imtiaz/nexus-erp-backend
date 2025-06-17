@@ -19,7 +19,7 @@ import { TransactionRequest } from 'src/common/interfaces/TransactionRequest';
 
 @UseGuards(TenantGuard)
 @UseGuards(JwtAuthGuard)
-@Controller('purchase')
+@Controller('purchases')
 export class PurchaseController {
   constructor(private readonly purchaseService: PurchaseService) {}
 
@@ -46,6 +46,10 @@ export class PurchaseController {
   }
 
   @Get()
+  @ResponseMetadata({
+    success: true,
+    message: 'Purchases fetched successfully',
+  })
   async findAll(@Query() filters: PurchaseFilterDto) {
     return await this.purchaseService.findAll(filters);
   }

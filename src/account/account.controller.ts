@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
@@ -17,6 +18,8 @@ import { AccountTree } from './interfaces/account-tree.interface';
 import { AccountType } from './interfaces/account-type.enum';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { TenantGuard } from 'src/tenant/guards/tenant.guard';
+import { Paginated } from 'src/common/utils/paginate';
+import { AccountFilterDto } from './dto/account-filter.dto';
 
 @Controller('accounts')
 @UseGuards(TenantGuard)
@@ -38,8 +41,11 @@ export class AccountController {
 
   @Get(':type')
   @ResponseMetadata({ success: true, message: 'Accounts fetched successfully' })
-  async findByType(@Param('type') type: AccountType): Promise<Account[]> {
-    return await this.AccountService.findByType(type);
+  async findByType(
+    @Param('type') type: AccountType,
+    @Query() filters: AccountFilterDto,
+  ): Promise<Paginated<Account>> {
+    return await this.AccountService.findByType(type, filters);
   }
 
   @Put(':id')
