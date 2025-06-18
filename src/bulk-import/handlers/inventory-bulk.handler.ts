@@ -1,32 +1,49 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
 import * as csvParser from 'csv-parser';
-import { InventoryService } from 'src/inventory/inventory.service';
 import { Readable } from 'stream';
-import { Inventory } from 'src/inventory/entity/inventory.entity';
+
+import { InventoryService } from 'src/inventory/inventory.service';
 import { CreateInventoryDto } from 'src/inventory/dto/create-inventory.dto';
+
+import { DataSource } from 'typeorm';
+import { Inventory } from 'src/inventory/entity/inventory.entity';
 
 @Injectable()
 export class InventoryBulkHandler {
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(
+    private readonly inventoryService: InventoryService,
+    private readonly dataSource: DataSource,
+  ) {}
 
-  async importFile(file: { buffer: Buffer }) {
-    const rows = (await this.parseCsv(file.buffer)) as CreateInventoryDto[];
+  async importFile(file: Express.Multer.File) {
+    const rows = await this.parseCsv(file.buffer);
 
-    const created: Inventory[] = [];
+    // Validate all rows first
+    const dtos: CreateInventoryDto[] = [];
     for (const row of rows) {
-      // const validated = this.validateRow(row);
-      created.push(await this.inventoryService.create(row));
+      dtos.push(this.toValidatedDto(row));
     }
 
+    // Map to entity-like objects
+    const entities = dtos.map((dto) => ({
+      ...dto,
+    }));
+
+    // Use manager to bulk insert in a transaction
+    await this.dataSource.manager.transaction(async (manager) => {
+      await manager.insert(Inventory, entities);
+    });
+
     return {
-      imported: created.length,
-      items: created,
+      imported: entities.length,
     };
   }
 
-  private async parseCsv(buffer: Buffer): Promise<CreateInventoryDto[]> {
+  private async parseCsv(buffer: Buffer): Promise<any[]> {
     return new Promise((resolve, reject) => {
-      const rows: CreateInventoryDto[] = [];
+      const rows = [];
       const stream = Readable.from(buffer).pipe(csvParser());
 
       stream.on('data', (data) => rows.push(data));
@@ -35,32 +52,37 @@ export class InventoryBulkHandler {
     });
   }
 
-  private validateRow(row: Record<string, string>) {
-    const required = ['name', 'code', 'quantity', 'baseRate', 'amount'];
-    for (const field of required) {
-      if (!row[field] || row[field].trim() === '') {
-        throw new BadRequestException(`Missing required field: ${field}`);
-      }
-    }
-
-    return {
-      name: row['name'].trim(),
-      code: row['code'].trim(),
+  private toValidatedDto(row: Record<string, any>): CreateInventoryDto {
+    const plain = {
+      ...row,
       quantity: parseInt(row['quantity']),
       baseRate: parseFloat(row['baseRate']),
-      category: row['category']?.trim() || null,
-      baseUnit: row['baseUnit']?.trim() || null,
-      amount: parseFloat(row['amount']),
-      parentId: row['parentId']?.trim() || null,
-      multiUnits: row['multiUnits'] ? this.parseJson(row['multiUnits']) : null,
+      multiUnits: row['multiUnits']
+        ? this.safeJson(row['multiUnits'])
+        : undefined,
     };
+
+    const dto = plainToInstance(CreateInventoryDto, plain, {
+      enableImplicitConversion: true,
+    });
+
+    const errors = validateSync(dto, {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+
+    if (errors.length > 0) {
+      throw new BadRequestException(errors);
+    }
+
+    return dto;
   }
 
-  private parseJson(value: string) {
+  private safeJson(value: string) {
     try {
       return JSON.parse(value);
-    } catch (e) {
-      throw new BadRequestException('Invalid JSON in multiUnits column.');
+    } catch {
+      throw new BadRequestException('Invalid JSON for multiUnits');
     }
   }
 }
