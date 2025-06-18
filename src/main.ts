@@ -8,6 +8,7 @@ import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { DataSource } from 'typeorm';
 import { seedAccounts } from './account/seeds';
+import { BullBoardModule } from './queues/bull-board.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -61,6 +62,9 @@ async function bootstrap() {
       },
     }),
   );
+
+  const bullBoardModule = app.get(BullBoardModule);
+  app.use('/queues', bullBoardModule.getServerAdapter().getRouter());
 
   // if (process.env.NODE_ENV === 'development') {
   //   const dataSource = app.get(DataSource);

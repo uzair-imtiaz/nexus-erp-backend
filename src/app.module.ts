@@ -21,7 +21,10 @@ import { CommonModule } from './common/common.module';
 import { SaleModule } from './sale/sale.module';
 import { RedisModule } from './redis/redis.module';
 import { PurchaseModule } from './purchase/purchase.module';
+import { QueuesModule } from './queues/queues.module';
 import redisConfig from './config/redis.config';
+import { BullModule } from '@nestjs/bullmq';
+import { BullBoardModule } from './queues/bull-board.module';
 
 @Module({
   imports: [
@@ -36,6 +39,8 @@ import redisConfig from './config/redis.config';
         ...configService.get('database'),
       }),
     }),
+    QueuesModule.forRootAsync(),
+    BullBoardModule,
     AuthModule,
     UsersModule,
     InventoryModule,
@@ -51,6 +56,7 @@ import redisConfig from './config/redis.config';
     SaleModule,
     RedisModule,
     PurchaseModule,
+    QueuesModule,
   ],
   controllers: [AppController],
   providers: [

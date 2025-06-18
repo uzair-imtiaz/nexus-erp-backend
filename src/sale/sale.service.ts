@@ -15,6 +15,9 @@ import { ACCOUNT_IDS } from './constants/sale.constants';
 import { CreateSaleDto, InventoryDto } from './dto/create-sale.dto';
 import { SaleInventory } from './entity/sale-inventory.entity';
 import { Sale } from './entity/sale.entity';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { AccountUpdateJob } from './processors/sale.processor';
 
 @Injectable()
 export class SaleService {
@@ -22,6 +25,7 @@ export class SaleService {
     @InjectRepository(Sale) private saleRepository: Repository<Sale>,
     @InjectRepository(SaleInventory)
     private saleInventoryRepository: Repository<SaleInventory>,
+    @InjectQueue('sales') private salesQueue: Queue,
     private readonly tenantContextService: TenantContextService,
     private readonly customerService: CustomerService,
     private readonly inventoryService: InventoryService,
@@ -54,7 +58,6 @@ export class SaleService {
     let totalTax = 0;
     let totalDiscount = 0;
     const inventories: SaleInventory[] = [];
-    const accountUpdates: Promise<any>[] = [];
 
     const saleToSave = this.saleRepository.create({
       tenant: { id: tenantId },
@@ -89,54 +92,30 @@ export class SaleService {
       );
     }
 
-    accountUpdates.push(
-      this.accountService.update(
-        String(ACCOUNT_IDS.COST),
-        {
-          ...(type === 'SALE'
-            ? { debitAmount: totalAmount }
-            : { creditAmount: totalAmount }),
-        },
-        queryRunner,
-        true,
-      ),
+    // Get customer account ID
+    const account = await this.redisService.getHash<Customer>(
+      `accountByEntity:${tenantId}:${EntityType.CUSTOMER}:${dto.customerId}:regular`,
     );
 
-    const netAmount = totalAmount + totalTax - totalDiscount;
-    await this.updateCustomerBalance(
-      dto.customerId,
-      netAmount,
-      type,
-      accountUpdates,
-      queryRunner,
-    );
-
-    this.addTaxAndDiscountTransactions(
-      accountUpdates,
-      totalTax,
-      totalDiscount,
-      type,
-      queryRunner,
-    );
-
-    accountUpdates.push(
-      this.accountService.update(
-        String(ACCOUNT_IDS.SALE),
-        {
-          ...(type === 'SALE'
-            ? { creditAmount: totalAmount }
-            : { debitAmount: totalAmount }),
-        },
-        queryRunner,
-        true,
-      ),
-    );
-    await Promise.all(accountUpdates);
+    if (!account) {
+      throw new NotFoundException('Customer account not found');
+    }
 
     await queryRunner.manager.save(SaleInventory, inventories);
 
     savedTransaction.totalAmount = totalAmount;
     await queryRunner.manager.save(savedTransaction);
+
+    // Queue account updates
+    await this.salesQueue.add('account-update', {
+      type,
+      totalAmount,
+      totalTax,
+      totalDiscount,
+      customerId: dto.customerId,
+      customerAccountId: account.id,
+    } as AccountUpdateJob);
+
     return savedTransaction;
   }
 
