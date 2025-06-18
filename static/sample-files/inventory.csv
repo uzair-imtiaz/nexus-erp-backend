@@ -1,0 +1,3 @@
+name,code,quantity,baseRate,category,baseUnit,amount,parentId,multiUnits
+Sample Item,INV-001,100,25.50,Electronics,pcs,2550.00,,{"unit1":10,"unit2":20}
+Another Item,INV-002,50,10.00,Office,sheets,500.00,INV-001,{"unitA":5,"unitB":10}

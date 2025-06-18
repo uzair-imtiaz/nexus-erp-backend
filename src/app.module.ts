@@ -1,27 +1,30 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ServeStaticModule } from '@nestjs/serve-static';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AccountModule } from './account/account.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { BankModule } from './bank/bank.module';
+import { CommonModule } from './common/common.module';
 import dbConfig from './config/db.config';
-import { InventoryModule } from './inventory/inventory.module';
-import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
-import { AccountModule } from './account/account.module';
-import { TenantModule } from './tenant/tenant.module';
-import { UsersModule } from './user/user.module';
-import { APP_GUARD } from '@nestjs/core';
-import { TenantGuard } from './tenant/guards/tenant.guard';
-import { VendorModule } from './vendor/vendor.module';
+import redisConfig from './config/redis.config';
 import { CustomerModule } from './customer/customer.module';
 import { ExpenseModule } from './expense/expense.module';
+import { InventoryModule } from './inventory/inventory.module';
 import { JournalModule } from './journal/journal.module';
-import { CommonModule } from './common/common.module';
-import { SaleModule } from './sale/sale.module';
-import { RedisModule } from './redis/redis.module';
 import { PurchaseModule } from './purchase/purchase.module';
-import redisConfig from './config/redis.config';
+import { RedisModule } from './redis/redis.module';
+import { RefreshTokensModule } from './refresh-tokens/refresh-tokens.module';
+import { SaleModule } from './sale/sale.module';
+import { TenantGuard } from './tenant/guards/tenant.guard';
+import { TenantModule } from './tenant/tenant.module';
+import { UsersModule } from './user/user.module';
+import { VendorModule } from './vendor/vendor.module';
+import { join } from 'path';
+import { BulkImportModule } from './bulk-import/bulk-import.module';
 
 @Module({
   imports: [
@@ -36,6 +39,11 @@ import redisConfig from './config/redis.config';
         ...configService.get('database'),
       }),
     }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'static'),
+      serveRoot: '/static',
+    }),
+    // BulkDataModule,
     AuthModule,
     UsersModule,
     InventoryModule,
@@ -51,6 +59,7 @@ import redisConfig from './config/redis.config';
     SaleModule,
     RedisModule,
     PurchaseModule,
+    BulkImportModule,
   ],
   controllers: [AppController],
   providers: [

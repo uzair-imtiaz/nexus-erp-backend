@@ -30,6 +30,7 @@ RUN pnpm install --prod --frozen-lockfile
 
 # Copy the built application output from the builder stage
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/static ./static
 
 # Expose the port your app runs on (adjust as needed)
 EXPOSE 3001
