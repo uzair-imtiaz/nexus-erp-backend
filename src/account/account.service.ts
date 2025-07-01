@@ -553,4 +553,52 @@ export class AccountService {
     });
     return x;
   }
+
+  /**
+   * Get accounts by type under a specific top-level account (e.g., Equity, Assets, etc.)
+   * @param parentName The name of the top-level account (e.g., 'Equity', 'Assets', etc.)
+   * @param type The account type to filter by (e.g., ACCOUNT_TYPE, ACCOUNT, etc.)
+   * @param filters Additional filters (e.g., name, pagination)
+   */
+  async findByTypeUnderTopLevel(
+    parentName: string,
+    type: AccountType,
+    filters: Record<string, any>,
+  ): Promise<Paginated<Account>> {
+    const tenantId = this.tenantContextService.getTenantId();
+    // Find the top-level account (ACCOUNT_GROUP) by name
+    const parent = await this.accountRepository.findOne({
+      where: {
+        name: parentName,
+      },
+    });
+    if (!parent) {
+      throw new NotFoundException(
+        `Top-level account '${parentName}' not found`,
+      );
+    }
+    // Find direct children of this parent, filtered by type
+    const queryBuilder = this.accountRepository
+      .createQueryBuilder('account')
+      .where('account.path LIKE :path', { path: `${parent.path}/%` })
+      .andWhere('account.type = :type', { type })
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where('account.tenant = :tenantId', { tenantId }).orWhere(
+            'account.system_generated = true',
+          );
+        }),
+      );
+    const { page, limit, ...filterFields } = filters;
+    const ALLOWED_FILTERS = ['name'];
+    Object.entries(filterFields).forEach(([key, value]) => {
+      if (value && ALLOWED_FILTERS.includes(key)) {
+        queryBuilder.andWhere(`account.${key} ILIKE :${key}`, {
+          [key]: `%${value}%`,
+        });
+      }
+    });
+    const paginated = await paginate<Account>(queryBuilder, page, limit);
+    return paginated;
+  }
 }
