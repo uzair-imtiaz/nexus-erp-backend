@@ -43,7 +43,6 @@ export class FormulationService {
     });
     if (!formulation)
       throw new NotFoundException(`Formulation with ID ${id} not found`);
-    console.log('formulation', formulation);
     return formulation;
   }
 

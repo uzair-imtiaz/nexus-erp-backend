@@ -15,6 +15,7 @@ import { TenantGuard } from 'src/tenant/guards/tenant.guard';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
 import { FormulationFilterDto } from './dto/formulation-filter.dto';
 import { CreateFormulationDto } from './dto/create-formulation.dto';
+import { UpdateFormulationDto } from './dto/update-formulation.dto';
 
 @UseGuards(JwtAuthGuard)
 @UseGuards(TenantGuard)
@@ -57,7 +58,7 @@ export class FormulationController {
   })
   update(
     @Param('id') id: string,
-    @Body() updateFormulationDto: CreateFormulationDto,
+    @Body() updateFormulationDto: UpdateFormulationDto,
   ) {
     return this.formulationService.update(id, updateFormulationDto);
   }
