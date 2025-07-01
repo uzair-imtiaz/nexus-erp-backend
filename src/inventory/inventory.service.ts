@@ -45,6 +45,10 @@ export class InventoryService {
       if (existingInventory) {
         throw new ConflictException('Inventory code already exists');
       }
+      if (!createInventoryDto.multiUnits) {
+        createInventoryDto.multiUnits = {};
+      }
+      createInventoryDto.multiUnits[createInventoryDto.baseUnit] = 1;
       const inventory = this.inventoryRepository.create({
         ...createInventoryDto,
         amount: createInventoryDto.baseRate * createInventoryDto.quantity,

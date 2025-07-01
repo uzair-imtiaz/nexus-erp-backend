@@ -48,6 +48,20 @@ export class AccountController {
     return await this.AccountService.findByType(type, filters);
   }
 
+  @Get(':parentName/:type')
+  @ResponseMetadata({ success: true, message: 'Accounts fetched successfully' })
+  async findByTypeUnderTopLevel(
+    @Param('parentName') parentName: string,
+    @Param('type') type: AccountType,
+    @Query() filters: AccountFilterDto,
+  ): Promise<Paginated<Account>> {
+    return await this.AccountService.findByTypeUnderTopLevel(
+      parentName,
+      type,
+      filters,
+    );
+  }
+
   @Put(':id')
   @ResponseMetadata({ success: true, message: 'Account updated successfully' })
   async update(
