@@ -8,10 +8,9 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { CustomAuthGuard } from './guards/custom-auth.guard';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LoginExpressRequest } from './interfaces/login-express.interface';
 import { SkipTenant } from 'src/common/decorators/skip-tenant-check.decorator';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
@@ -38,16 +37,19 @@ export class AuthController {
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: true,
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+      domain: process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
     });
     res.cookie('accessToken', accessToken, {
       secure: true,
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
       expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 1),
+      domain: process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
     });
     res.cookie('tenantId', tenantId, {
       secure: true,
-      sameSite: 'strict',
+      domain: process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
       expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 1),
     });
 
@@ -62,9 +64,9 @@ export class AuthController {
     success: true,
     message: 'Logged out successfully',
   })
-  async logout(@Req() req, @Res({ passthrough: true }) res: Response) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     try {
-      const refreshToken = req.cookies['refreshToken'];
+      const refreshToken = req.cookies?.['refreshToken'];
       if (!refreshToken) {
         throw new BadRequestException('Refresh token is missing');
       }
