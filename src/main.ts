@@ -18,6 +18,7 @@ async function bootstrap() {
     'http://localhost:5173',
     'http://app:80',
     'http://localhost',
+    'https://app.mintsbook.com',
   ];
 
   const corsOptions: CorsOptions = {
