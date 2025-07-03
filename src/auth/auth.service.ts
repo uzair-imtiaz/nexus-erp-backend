@@ -93,12 +93,6 @@ export class AuthService {
 
   async login(user: Omit<User, 'password'>) {
     try {
-      if (!user.tenant?.id) {
-        throw new InternalServerErrorException(
-          'User tenant information is missing',
-        );
-      }
-
       const jti = uuidv4();
       const payload: JwtRefreshPayload = {
         email: user.email,

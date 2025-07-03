@@ -8,7 +8,8 @@ export default registerAs('database', () => ({
   synchronize: process.env.NODE_ENV === 'development',
   autoLoadEntities: true,
   logging: false,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  // ssl: {
+  //   rejectUnauthorized: false,
+  // },
+  ssl: false,
 }));
