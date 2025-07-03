@@ -6,8 +6,8 @@ import { NextFunction, Request, Response } from 'express';
 import * as session from 'express-session';
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { DataSource } from 'typeorm';
-import { seedAccounts } from './account/seeds';
+// import { DataSource } from 'typeorm';
+// import { seedAccounts } from './account/seeds';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -19,6 +19,7 @@ async function bootstrap() {
     'http://app:80',
     'http://localhost',
     'https://app.mintsbook.com',
+    'https://nexus-erp.vercel.app',
   ];
 
   const corsOptions: CorsOptions = {
@@ -34,6 +35,7 @@ async function bootstrap() {
       } else {
         console.log('Blocked by CORS:', origin);
         callback(new Error('Not allowed by CORS'));
+        return;
       }
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -56,9 +58,10 @@ async function bootstrap() {
       cookie: {
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         httpOnly: false,
         maxAge: 1000 * 60 * 60 * 24 * 7,
+        domain: process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
       },
     }),
   );
