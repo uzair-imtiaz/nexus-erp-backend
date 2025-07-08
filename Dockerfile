@@ -10,7 +10,7 @@ WORKDIR /app
 # Copy dependency manifest files (for install)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# 🔨 Build stage: Install full dependencies and build the app
+# 🔨 Build stage
 FROM base AS builder
 
 # Install all dependencies including devDependencies
@@ -19,19 +19,22 @@ RUN pnpm install --frozen-lockfile
 # Copy the full source code into the container
 COPY . .
 
-# Build the application (e.g., NestJS or NextJS)
+# Build the application
 RUN pnpm build
 
-# 🏁 Production stage: Install only production dependencies
+# 🏁 Production stage
 FROM base AS production
 
-# Install only production dependencies (no dev dependencies)
+# Install only production dependencies
 RUN pnpm install --prod --frozen-lockfile
 
-# Copy the built application output from the builder stage
+# Copy built app from builder
 COPY --from=builder /app/dist ./dist
 
-# Expose the port your app runs on (adjust as needed)
+# Copy production node_modules from builder
+COPY --from=builder /app/node_modules ./node_modules
+
+# Expose your app port
 EXPOSE 3001
 
 # Default command to run the application
