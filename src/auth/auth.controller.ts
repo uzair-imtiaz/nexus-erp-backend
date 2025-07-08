@@ -38,17 +38,20 @@ export class AuthController {
       httpOnly: true,
       secure: true,
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-      domain: process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
+      domain:
+        process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
     });
     res.cookie('accessToken', accessToken, {
       secure: true,
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
       expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 1),
-      domain: process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
+      domain:
+        process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
     });
     res.cookie('tenantId', tenantId, {
       secure: true,
-      domain: process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
+      domain:
+        process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
       expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 1),
     });
@@ -66,14 +69,26 @@ export class AuthController {
   })
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     try {
-      const refreshToken = req.cookies?.['refreshToken'];
+      const cookies = req.cookies as Record<string, string>;
+      const refreshToken = cookies?.['refreshToken'];
+
       if (!refreshToken) {
         throw new BadRequestException('Refresh token is missing');
       }
 
-      res.clearCookie('accessToken');
-      // res.clearCookie('refreshToken');
-      res.clearCookie('tenantId');
+      const cookieOptions = {
+        domain:
+          process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite:
+          process.env.NODE_ENV === 'production'
+            ? ('none' as const)
+            : ('lax' as const),
+      };
+      res.clearCookie('accessToken', cookieOptions);
+      res.clearCookie('refreshToken', cookieOptions);
+      res.clearCookie('tenantId', cookieOptions);
 
       const response = await this.authService.logout(refreshToken);
 
