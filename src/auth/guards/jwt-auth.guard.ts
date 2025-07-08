@@ -28,7 +28,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       const newAccessToken = this.authService?.generateAccessToken(payload);
 
       // Update request headers for subsequent guards/controllers
-      req.headers.Authorization = `Bearer ${newAccessToken}`;
+      req.headers.authorization = `Bearer ${newAccessToken}`;
 
       // Optionally set new access token in response
       const res = context.switchToHttp().getResponse();

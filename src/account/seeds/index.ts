@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
-import { Account } from '../entity/account.entity';
-import { AccountType } from '../interfaces/account-type.enum';
+import { Account } from 'src/account/entity/account.entity';
+import { AccountType } from 'src/account/interfaces/account-type.enum';
 
 export const seedAccounts = async (dataSource: DataSource) => {
   const repo = dataSource.getRepository(Account);
