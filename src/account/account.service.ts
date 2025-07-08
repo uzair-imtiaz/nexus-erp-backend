@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -39,7 +40,10 @@ export class AccountService {
     queryRunner?: QueryRunner,
   ): Promise<Account> {
     let ownQueryRunner = false;
-    const tenantId = this.tenantContextService.getTenantId()!;
+    const tenantId = this.tenantContextService.getTenantId();
+    if (!tenantId) {
+      throw new BadRequestException('Tenant not found');
+    }
 
     if (!queryRunner) {
       queryRunner = this.dataSource.createQueryRunner();

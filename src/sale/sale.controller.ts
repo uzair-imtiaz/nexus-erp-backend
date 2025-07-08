@@ -1,8 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -15,6 +18,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { TransactionRequest } from 'src/common/interfaces/TransactionRequest';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
 import { SaleFilterDto } from './dto/sale-filters.dto';
+import { UpdateSaleDto } from './dto/update-sale.dto';
 
 @Controller('sales')
 @UseGuards(JwtAuthGuard)
@@ -47,5 +51,36 @@ export class SaleController {
   @Get()
   async findAll(@Query() filters: SaleFilterDto) {
     return await this.saleService.findAll(filters);
+  }
+
+  @ResponseMetadata({
+    success: true,
+    message: 'Sale fetched successfully',
+  })
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return await this.saleService.findOne(id);
+  }
+
+  @ResponseMetadata({
+    success: true,
+    message: 'Sale updated successfully',
+  })
+  @Put(':id')
+  async update(
+    @Param('id') id: string,
+    @Body() updateSaleDto: UpdateSaleDto,
+    @Req() req: TransactionRequest,
+  ) {
+    return await this.saleService.update(id, updateSaleDto, req.queryRunner);
+  }
+
+  @ResponseMetadata({
+    success: true,
+    message: 'Sale deleted successfully',
+  })
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    return await this.saleService.remove(id);
   }
 }

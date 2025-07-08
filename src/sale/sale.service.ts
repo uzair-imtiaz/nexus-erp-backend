@@ -15,6 +15,7 @@ import { ACCOUNT_IDS } from './constants/sale.constants';
 import { CreateSaleDto, InventoryDto } from './dto/create-sale.dto';
 import { SaleInventory } from './entity/sale-inventory.entity';
 import { Sale } from './entity/sale.entity';
+import { UpdateSaleDto } from './dto/update-sale.dto';
 
 @Injectable()
 export class SaleService {
@@ -289,5 +290,181 @@ export class SaleService {
 
   async remove(id: string): Promise<void> {
     await this.saleRepository.delete(id);
+  }
+
+  async findOne(id: string): Promise<Sale> {
+    const sale = await this.saleRepository.findOne({
+      where: { id },
+      relations: ['inventories', 'customer'],
+    });
+    if (!sale) {
+      throw new NotFoundException('Sale not found');
+    }
+    return sale;
+  }
+
+  private async reverseSaleEffects(
+    sale: Sale,
+    queryRunner: QueryRunner,
+  ): Promise<void> {
+    // 1. Reverse inventory and account updates
+    for (const item of sale.inventories) {
+      const reverseItem: InventoryDto = {
+        id: item.inventory.id,
+        quantity: item.quantity,
+        rate: item.rate,
+        discount: item.discount,
+        tax: item.tax,
+        unit: item.unit,
+      };
+      await this.handleInventoryUpdate(
+        reverseItem,
+        item.rate * item.quantity,
+        sale.type === 'SALE' ? 'RETURN' : 'SALE',
+        queryRunner,
+      );
+    }
+
+    // 2. Reverse customer balance and account updates
+    const totalAmount = sale.totalAmount;
+    const totalTax = sale.inventories.reduce((sum, i) => sum + (i.tax ?? 0), 0);
+    const totalDiscount = sale.inventories.reduce(
+      (sum, i) => sum + (i.discount ?? 0),
+      0,
+    );
+    const netAmount = totalAmount + totalTax - totalDiscount;
+    const accountUpdates: Promise<any>[] = [];
+    await this.updateCustomerBalance(
+      sale.customer.id,
+      netAmount,
+      sale.type === 'SALE' ? 'RETURN' : 'SALE',
+      accountUpdates,
+      queryRunner,
+    );
+    this.addTaxAndDiscountTransactions(
+      accountUpdates,
+      totalTax,
+      totalDiscount,
+      sale.type === 'SALE' ? 'RETURN' : 'SALE',
+      queryRunner,
+    );
+    await Promise.all(accountUpdates);
+  }
+
+  async update(
+    saleId: string,
+    dto: UpdateSaleDto,
+    queryRunner: QueryRunner,
+  ): Promise<Sale> {
+    const tenantId = this.tenantContextService.getTenantId()!;
+
+    // Fetch the existing sale and its inventories
+    const existingSale = await this.saleRepository.findOne({
+      where: { id: saleId, tenant: { id: tenantId } },
+      relations: ['inventories', 'customer'],
+    });
+    if (!existingSale) {
+      throw new NotFoundException('Sale not found');
+    }
+
+    // Reverse the effects of the old sale
+    await this.reverseSaleEffects(existingSale, queryRunner);
+    // 3. Remove old inventories
+    await queryRunner.manager.delete(SaleInventory, { sale: { id: saleId } });
+
+    // Apply the new sale data (similar to createSale)
+    let totalAmount = 0;
+    let totalTax = 0;
+    let totalDiscount = 0;
+    const inventories: SaleInventory[] = [];
+    const accountUpdates: Promise<any>[] = [];
+
+    existingSale.notes = dto.notes;
+    existingSale.customer = { id: dto.customerId } as Customer;
+    existingSale.ref = dto.ref;
+    existingSale.date = dto.date;
+
+    for (const item of dto.items) {
+      const { amount, tax, discount } = this.calculateItemTotals(item);
+      totalAmount += amount;
+      totalTax += tax;
+      totalDiscount += discount;
+
+      await this.handleInventoryUpdate(item, amount, 'SALE', queryRunner);
+
+      inventories.push(
+        this.saleInventoryRepository.create({
+          sale: existingSale,
+          inventory: { id: item.id },
+          quantity: item.quantity,
+          rate: item.rate,
+          discount: discount,
+          tax: tax,
+          unit: item.unit,
+          tenant: { id: tenantId },
+        }),
+      );
+    }
+
+    accountUpdates.push(
+      this.accountService.update(
+        String(ACCOUNT_IDS.COST),
+        { debitAmount: totalAmount },
+        queryRunner,
+        true,
+      ),
+    );
+
+    const netAmount = totalAmount + totalTax - totalDiscount;
+    await this.updateCustomerBalance(
+      dto.customerId,
+      netAmount,
+      'SALE',
+      accountUpdates,
+      queryRunner,
+    );
+
+    this.addTaxAndDiscountTransactions(
+      accountUpdates,
+      totalTax,
+      totalDiscount,
+      'SALE',
+      queryRunner,
+    );
+
+    accountUpdates.push(
+      this.accountService.update(
+        String(ACCOUNT_IDS.SALE),
+        { creditAmount: totalAmount },
+        queryRunner,
+        true,
+      ),
+    );
+    await Promise.all(accountUpdates);
+
+    await queryRunner.manager.save(SaleInventory, inventories);
+
+    existingSale.totalAmount = totalAmount;
+    await queryRunner.manager.save(existingSale);
+    return existingSale;
+  }
+
+  async delete(id: string, queryRunner: QueryRunner): Promise<void> {
+    const tenantId = this.tenantContextService.getTenantId();
+    // Fetch the sale and its inventories
+    const sale = await this.saleRepository.findOne({
+      where: { id, tenant: { id: tenantId } },
+      relations: ['inventories', 'customer'],
+    });
+    if (!sale) {
+      throw new NotFoundException('Sale not found');
+    }
+
+    // Reverse all effects
+    await this.reverseSaleEffects(sale, queryRunner);
+
+    // Delete SaleInventory and Sale
+    await queryRunner.manager.delete(SaleInventory, { sale: { id } });
+    await queryRunner.manager.delete(Sale, { id });
   }
 }
