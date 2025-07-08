@@ -382,28 +382,30 @@ export class SaleService {
     existingSale.notes = dto.notes;
     existingSale.customer = { id: dto.customerId } as Customer;
     existingSale.ref = dto.ref;
-    existingSale.date = dto.date;
+    if (dto.date) existingSale.date = dto.date;
 
-    for (const item of dto.items) {
-      const { amount, tax, discount } = this.calculateItemTotals(item);
-      totalAmount += amount;
-      totalTax += tax;
-      totalDiscount += discount;
+    if (dto.items) {
+      for (const item of dto.items) {
+        const { amount, tax, discount } = this.calculateItemTotals(item);
+        totalAmount += amount;
+        totalTax += tax;
+        totalDiscount += discount;
 
-      await this.handleInventoryUpdate(item, amount, 'SALE', queryRunner);
+        await this.handleInventoryUpdate(item, amount, 'SALE', queryRunner);
 
-      inventories.push(
-        this.saleInventoryRepository.create({
-          sale: existingSale,
-          inventory: { id: item.id },
-          quantity: item.quantity,
-          rate: item.rate,
-          discount: discount,
-          tax: tax,
-          unit: item.unit,
-          tenant: { id: tenantId },
-        }),
-      );
+        inventories.push(
+          this.saleInventoryRepository.create({
+            sale: existingSale,
+            inventory: { id: item.id },
+            quantity: item.quantity,
+            rate: item.rate,
+            discount: discount,
+            tax: tax,
+            unit: item.unit,
+            tenant: { id: tenantId },
+          }),
+        );
+      }
     }
 
     accountUpdates.push(
@@ -417,7 +419,7 @@ export class SaleService {
 
     const netAmount = totalAmount + totalTax - totalDiscount;
     await this.updateCustomerBalance(
-      dto.customerId,
+      dto.customerId!,
       netAmount,
       'SALE',
       accountUpdates,
