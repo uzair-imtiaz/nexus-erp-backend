@@ -36,6 +36,8 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
         secure: true,
         sameSite: 'strict',
         expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 1),
+        domain:
+          process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
       });
 
       return true; // Allow the request to proceed
