@@ -61,7 +61,8 @@ async function bootstrap() {
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         httpOnly: false,
         maxAge: 1000 * 60 * 60 * 24 * 7,
-        domain: process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
+        domain:
+          process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
       },
     }),
   );

@@ -135,7 +135,7 @@ export const seedAccounts = async (dataSource: DataSource) => {
     AccountType.ACCOUNT,
     currentAssets,
   );
-  await createAccount(
+  const stockInHand = await createAccount(
     'Stock In Hand',
     '412000',
     AccountType.ACCOUNT,
@@ -303,6 +303,13 @@ export const seedAccounts = async (dataSource: DataSource) => {
     '311100',
     AccountType.SUB_ACCOUNT,
     sales,
+  );
+
+  await createAccount(
+    'Work In Progress',
+    '412100',
+    AccountType.SUB_ACCOUNT,
+    stockInHand,
   );
   console.log('✅ Account chart of accounts seeded.');
 };
