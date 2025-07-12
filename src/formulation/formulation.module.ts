@@ -9,5 +9,6 @@ import { Formulation } from './entity/formulation.entity';
   imports: [TypeOrmModule.forFeature([Formulation]), TenantModule],
   controllers: [FormulationController],
   providers: [FormulationService],
+  exports: [FormulationService],
 })
 export class FormulationModule {}
