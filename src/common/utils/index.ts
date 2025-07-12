@@ -11,7 +11,7 @@ export const getKeyForEntityFromAccountForRedis = (
   return key;
 };
 
-export const getKeyForAccountFromEntityForRedis = (
+export const generateRedisKeyFromAccountToEntity = (
   entityId: string,
   entityType: EntityType,
   tenantId: string,

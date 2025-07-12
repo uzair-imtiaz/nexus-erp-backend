@@ -13,7 +13,7 @@ import { FormulationService } from 'src/formulation/formulation.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { AccountService } from 'src/account/account.service';
 import { RedisService } from 'src/redis/redis.service';
-import { getKeyForAccountFromEntityForRedis } from 'src/common/utils';
+import { generateRedisKeyFromAccountToEntity } from 'src/common/utils';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { Account } from 'src/account/entity/account.entity';
 import { ACCOUNT_IDS } from './constants/accounts.constants';
@@ -64,7 +64,7 @@ export class ProductionService {
       );
 
       // Resolve inventory account from Redis or DB
-      const key = getKeyForAccountFromEntityForRedis(
+      const key = generateRedisKeyFromAccountToEntity(
         String(ingredient.inventory_item_id),
         EntityType.INVENTORY,
         tenantId,
@@ -159,14 +159,13 @@ export class ProductionService {
     let totalProductAmount = 0;
     const inventoryPromises: Promise<any>[] = [];
     const accountPromises: Promise<any>[] = [];
-    const expensePromises: Promise<any>[] = [];
 
     for (const product of formulation.products) {
       const amount =
         Number(formulation.totalCost) * Number(product.costFiPercent);
       totalProductAmount += amount;
       // Resolve inventory account from Redis or DB
-      const key = getKeyForAccountFromEntityForRedis(
+      const key = generateRedisKeyFromAccountToEntity(
         String(product.product_id),
         EntityType.INVENTORY,
         tenantId,
@@ -228,7 +227,6 @@ export class ProductionService {
 
     await Promise.all(inventoryPromises);
     await Promise.all(accountPromises);
-    await Promise.all(expensePromises);
   }
 
   async findAll(filters: Record<string, any>): Promise<Paginated<Production>> {
@@ -241,7 +239,6 @@ export class ProductionService {
       .leftJoinAndSelect('production.formulation', 'formulation')
       .leftJoinAndSelect('production.tenant', 'tenant')
       .where('tenant.id = :tenantId', { tenantId });
-    //   .where('formulation.tenantId = :tenantId', { tenantId });
 
     const { page, limit } = filters;
     const paginated = paginate(queryBuilder, page, limit);
