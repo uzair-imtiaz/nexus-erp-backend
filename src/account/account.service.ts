@@ -22,7 +22,7 @@ import { AccountType } from './interfaces/account-type.enum';
 import { accountColumnNameMap } from './constants/account.constants';
 import { plainToInstance } from 'class-transformer';
 import { RedisService } from 'src/redis/redis.service';
-import { getKeyForRedis } from 'src/common/utils';
+import { getKeyForEntityFromAccountForRedis } from 'src/common/utils';
 import { paginate, Paginated } from 'src/common/utils/paginate';
 
 @Injectable()
@@ -108,7 +108,7 @@ export class AccountService {
         );
       }
       await this.redisService.setHash(`account:${account.id}`, account);
-      const key = getKeyForRedis(account, tenantId);
+      const key = getKeyForEntityFromAccountForRedis(account, tenantId);
 
       await this.redisService.setHash(key, account);
 
@@ -163,7 +163,7 @@ export class AccountService {
     accounts
       .filter((account) => account.tenant)
       .forEach((account) => {
-        const key = getKeyForRedis(account, tenantId);
+        const key = getKeyForEntityFromAccountForRedis(account, tenantId);
 
         this.redisService.setHash(key, account);
       });
@@ -287,7 +287,7 @@ export class AccountService {
         debitAmount: updatedDebit,
       });
 
-      const key = getKeyForRedis(account, tenantId);
+      const key = getKeyForEntityFromAccountForRedis(account, tenantId);
       await this.redisService.setMHash(key, {
         ...fieldsToUpdate,
         creditAmount: updatedCredit,
@@ -379,7 +379,7 @@ export class AccountService {
         }
       }
       await this.redisService.deleteHash(`account:${id}`);
-      const key = getKeyForRedis(account, tenantId);
+      const key = getKeyForEntityFromAccountForRedis(account, tenantId);
 
       await this.redisService.deleteHash(key);
       if (ownQueryRunner) await queryRunner.commitTransaction();

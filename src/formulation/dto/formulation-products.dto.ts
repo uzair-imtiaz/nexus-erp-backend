@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class FormulationProductDto {
   @IsNumber()
@@ -7,6 +7,10 @@ export class FormulationProductDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  name: string;
 
   @IsNumber()
   qtyFiPercent?: number;
