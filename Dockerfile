@@ -22,16 +22,14 @@ COPY . .
 # Build the application
 RUN pnpm build
 
+# Remove devDependencies
+RUN pnpm prune --prod
+
 # 🏁 Production stage
 FROM base AS production
 
-# Install only production dependencies
-RUN pnpm install --prod --frozen-lockfile
-
-# Copy built app from builder
+COPY package.json pnpm-lock.yaml ./
 COPY --from=builder /app/dist ./dist
-
-# Copy production node_modules from builder
 COPY --from=builder /app/node_modules ./node_modules
 
 # Expose your app port
