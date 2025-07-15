@@ -22,11 +22,8 @@ COPY . .
 # Build the application
 RUN pnpm build
 
-# # Run migrations against compiled dist/
-# RUN node ./node_modules/typeorm/cli.js migration:run -d dist/data-source.js
-
-# Remove devDependencies
-RUN pnpm prune --prod
+# # Remove devDependencies
+# RUN pnpm prune --prod
 
 # 🏁 Production stage
 FROM base AS production
@@ -39,4 +36,4 @@ COPY --from=builder /app/node_modules ./node_modules
 EXPOSE 3001
 
 # Default command to run the application
-CMD ["sh", "-c", "node dist/node_modules/typeorm/cli.js migration:run -d dist/data-source.js && node dist/main"]
+CMD ["node", "dist/main"]
