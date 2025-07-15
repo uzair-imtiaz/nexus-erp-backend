@@ -22,8 +22,8 @@ COPY . .
 # Build the application
 RUN pnpm build
 
-# # Remove devDependencies
-# RUN pnpm prune --prod
+# Remove devDependencies
+RUN pnpm prune --prod
 
 # 🏁 Production stage
 FROM base AS production
