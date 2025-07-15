@@ -22,6 +22,9 @@ COPY . .
 # Build the application
 RUN pnpm build
 
+# Run migrations against compiled dist/
+RUN node ./node_modules/typeorm/cli.js migration:run -d dist/data-source.js
+
 # Remove devDependencies
 RUN pnpm prune --prod
 
