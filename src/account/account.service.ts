@@ -160,13 +160,16 @@ export class AccountService {
 
   async findOne<T extends keyof Account>(
     where: FindOptionsWhere<Account>,
-    select?: T[],
-    relations?: string[],
-  ): Promise<Account | null> {
+    select: T[],
+  ): Promise<Pick<Account, T> | null> {
+    const tenantId = this.tenantContextService.getTenantId();
     return this.accountRepository.findOne({
-      where,
+      where: {
+        ...where,
+        tenant: { id: tenantId },
+      },
       select,
-      relations,
+      relations: ['tenant'],
     });
   }
 
