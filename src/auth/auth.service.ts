@@ -1,20 +1,19 @@
 import {
-  Injectable,
-  UnauthorizedException,
-  InternalServerErrorException,
   ForbiddenException,
-  UseGuards,
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcryptjs';
+import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
+import { User } from 'src/user/entity/user.entity';
+import { UsersService } from 'src/user/user.service';
 import { v4 as uuidv4 } from 'uuid';
 import {
   JwtAccessPayload,
   JwtRefreshPayload,
 } from './interfaces/jwt-payload.interface';
-import { User } from 'src/user/entity/user.entity';
-import { UsersService } from 'src/user/user.service';
-import { RefreshTokensService } from 'src/refresh-tokens/refresh-tokens.service';
 
 @Injectable()
 export class AuthService {

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { AccountService } from './account.service';
 import { AccountController } from './account.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -11,7 +11,7 @@ import { RedisModule } from 'src/redis/redis.module';
   imports: [
     TypeOrmModule.forFeature([Account]),
     TenantModule,
-    AuthModule,
+    forwardRef(() => AuthModule),
     RedisModule,
   ],
   controllers: [AccountController],

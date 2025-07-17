@@ -8,9 +8,10 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { Response, Request } from 'express';
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { CustomAuthGuard } from './guards/custom-auth.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LoginExpressRequest } from './interfaces/login-express.interface';
 import { SkipTenant } from 'src/common/decorators/skip-tenant-check.decorator';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
@@ -67,28 +68,16 @@ export class AuthController {
     success: true,
     message: 'Logged out successfully',
   })
-  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async logout(@Req() req, @Res({ passthrough: true }) res: Response) {
     try {
-      const cookies = req.cookies as Record<string, string>;
-      const refreshToken = cookies?.['refreshToken'];
-
+      const refreshToken = req.cookies['refreshToken'];
       if (!refreshToken) {
         throw new BadRequestException('Refresh token is missing');
       }
 
-      const cookieOptions = {
-        domain:
-          process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        sameSite:
-          process.env.NODE_ENV === 'production'
-            ? ('none' as const)
-            : ('lax' as const),
-      };
-      res.clearCookie('accessToken', cookieOptions);
-      res.clearCookie('refreshToken', cookieOptions);
-      res.clearCookie('tenantId', cookieOptions);
+      res.clearCookie('accessToken');
+      res.clearCookie('refreshToken');
+      res.clearCookie('tenantId');
 
       const response = await this.authService.logout(refreshToken);
 

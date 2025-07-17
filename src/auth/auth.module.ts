@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { RefreshTokensModule } from 'src/refresh-tokens/refresh-tokens.module';
 import { UsersModule } from 'src/user/user.module';
@@ -11,7 +11,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Module({
   imports: [
-    UsersModule,
+    forwardRef(() => UsersModule),
     RefreshTokensModule,
     PassportModule,
     JwtModule,
@@ -21,4 +21,4 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
   providers: [AuthService, JwtStrategy, JwtAuthGuard],
   exports: [AuthService, JwtAuthGuard],
 })
-export class AuthModule { }
+export class AuthModule {}

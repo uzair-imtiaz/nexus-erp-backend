@@ -11,6 +11,7 @@ import * as bcrypt from 'bcryptjs';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { TenantService } from 'src/tenant/tenant.service';
+import { AccountService } from 'src/account/account.service';
 
 @Injectable()
 export class UsersService {
@@ -18,6 +19,7 @@ export class UsersService {
     @InjectRepository(User) private userRepository: Repository<User>,
     private readonly tenantContextService: TenantContextService,
     private readonly tenantService: TenantService,
+    private readonly accountService: AccountService,
   ) {}
 
   async create(user: CreateUserDto): Promise<Omit<User, 'password'>> {
@@ -33,6 +35,7 @@ export class UsersService {
     const tenant = await this.tenantService.create({
       name: user.tenantName,
     });
+    await this.accountService.copySystemAccountsForTenant(tenant); // needs queueing
     const _user = this.userRepository.create(user);
     _user.tenant = tenant;
     await this.userRepository.insert(_user);

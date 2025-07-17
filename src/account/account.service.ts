@@ -24,6 +24,7 @@ import { plainToInstance } from 'class-transformer';
 import { RedisService } from 'src/redis/redis.service';
 import { getKeyForEntityFromAccountForRedis } from 'src/common/utils';
 import { paginate, Paginated } from 'src/common/utils/paginate';
+import { Tenant } from 'src/tenant/entity/tenant.entity';
 
 @Injectable()
 export class AccountService {
@@ -604,5 +605,44 @@ export class AccountService {
     });
     const paginated = await paginate<Account>(queryBuilder, page, limit);
     return paginated;
+  }
+
+  async copySystemAccountsForTenant(newTenant: Tenant): Promise<void> {
+    const systemAccounts = await this.accountRepository.find({
+      where: { systemGenerated: true },
+      order: { path: 'ASC' }, // Ensure parent accounts come before children
+      relations: ['parent'], // Needed to access sysAcc.parent.id
+    });
+
+    const oldToNewAccountMap = new Map<string, Account>();
+
+    await this.dataSource.transaction(async (manager) => {
+      for (const sysAcc of systemAccounts) {
+        const newAccount = manager.getRepository(Account).create({
+          name: sysAcc.name,
+          type: sysAcc.type,
+          code: sysAcc.code,
+          entityType: sysAcc.entityType,
+          entityId: sysAcc.entityId,
+          systemGenerated: false,
+          path: sysAcc.path,
+          pathName: sysAcc.pathName,
+          tenant: newTenant,
+          debitAmount: 0,
+          creditAmount: 0,
+        });
+
+        // Set parent if already saved
+        if (sysAcc.parent) {
+          const newParent = oldToNewAccountMap.get(sysAcc.parent.id);
+          if (newParent) {
+            newAccount.parent = newParent;
+          }
+        }
+
+        const saved = await manager.getRepository(Account).save(newAccount);
+        oldToNewAccountMap.set(sysAcc.id, saved);
+      }
+    });
   }
 }
