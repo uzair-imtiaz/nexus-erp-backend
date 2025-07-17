@@ -8,16 +8,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { AccountService } from 'src/account/account.service';
 import { CreateAccountDto } from 'src/account/dto/create-account.dto';
+import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
 import { AccountType } from 'src/account/interfaces/account-type.enum';
+import { EntityType } from 'src/common/enums/entity-type.enum';
 import { paginate, Paginated } from 'src/common/utils/paginate';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { DataSource, QueryRunner, Repository } from 'typeorm';
-import { PARENT_ACCOUNT_IDS } from './contsants/inventory.constants';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { Inventory } from './entity/inventory.entity';
-import { EntityType } from 'src/common/enums/entity-type.enum';
-import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
 
 @Injectable()
 export class InventoryService {
@@ -62,21 +61,33 @@ export class InventoryService {
 
       const instance = plainToInstance(Inventory, savedInventory);
 
+      let account = await this.accountService.findOne(
+        {
+          name: 'Customer Openings',
+        },
+        ['id'],
+      );
       const creditAccount: CreateAccountDto = {
         name: instance.name,
         code: `${instance.code}-cr`,
         type: AccountType.SUB_ACCOUNT,
-        parentId: PARENT_ACCOUNT_IDS.CREDIT,
+        parentId: Number(account?.id),
         entityId: instance.id,
         entityType: EntityType.INVENTORY,
         creditAmount: instance.amount,
       };
 
+      account = await this.accountService.findOne(
+        {
+          name: 'Stock In Hand',
+        },
+        ['id'],
+      );
       const debitAccount: CreateAccountDto = {
         name: instance.name,
         code: `${instance.code}-dr`,
         type: AccountType.SUB_ACCOUNT,
-        parentId: PARENT_ACCOUNT_IDS.DEBIT,
+        parentId: Number(account?.id),
         entityId: instance.id,
         entityType: EntityType.INVENTORY,
         debitAmount: instance.amount,

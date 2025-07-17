@@ -4,19 +4,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Production } from './entity/production.entity';
-import { QueryRunner, Repository } from 'typeorm';
-import { CreateProductionDto } from './dto/create-production.dto';
-import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { AccountService } from 'src/account/account.service';
+import { Account } from 'src/account/entity/account.entity';
+import { EntityType } from 'src/common/enums/entity-type.enum';
+import { generateRedisKeyFromAccountToEntity } from 'src/common/utils';
 import { paginate, Paginated } from 'src/common/utils/paginate';
 import { FormulationService } from 'src/formulation/formulation.service';
 import { InventoryService } from 'src/inventory/inventory.service';
-import { AccountService } from 'src/account/account.service';
 import { RedisService } from 'src/redis/redis.service';
-import { generateRedisKeyFromAccountToEntity } from 'src/common/utils';
-import { EntityType } from 'src/common/enums/entity-type.enum';
-import { Account } from 'src/account/entity/account.entity';
-import { ACCOUNT_IDS } from './constants/accounts.constants';
+import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { QueryRunner, Repository } from 'typeorm';
+import { CreateProductionDto } from './dto/create-production.dto';
+import { Production } from './entity/production.entity';
 
 @Injectable()
 export class ProductionService {
@@ -110,8 +109,15 @@ export class ProductionService {
     await Promise.all(creditPromises);
 
     // Debit WIP after credits
+    const wipAccount = await this.accountService.findOne(
+      { name: 'Work In Progress' },
+      ['id'],
+    );
+    if (!wipAccount) {
+      throw new NotFoundException('Work In Progress account not found');
+    }
     await this.accountService.debit(
-      String(ACCOUNT_IDS.WIP),
+      wipAccount.id,
       workInProgressAmount,
       queryRunner,
     );
@@ -206,9 +212,17 @@ export class ProductionService {
       );
     }
     // Credit WIP account by total
+
+    const wipAccount = await this.accountService.findOne(
+      { name: 'Work In Progress' },
+      ['id'],
+    );
+    if (!wipAccount) {
+      throw new NotFoundException('Work In Progress account not found');
+    }
     accountPromises.push(
       this.accountService.credit(
-        String(ACCOUNT_IDS.WIP),
+        wipAccount.id,
         totalProductAmount,
         queryRunner,
       ),

@@ -9,6 +9,7 @@ import { TenantContextService } from 'src/tenant/tenant-context.service';
 import {
   Brackets,
   DataSource,
+  FindOptionsWhere,
   In,
   Like,
   QueryRunner,
@@ -155,6 +156,18 @@ export class AccountService {
 
     const paginated = await paginate<Account>(queryBuilder, page, limit);
     return paginated;
+  }
+
+  async findOne<T extends keyof Account>(
+    where: FindOptionsWhere<Account>,
+    select?: T[],
+    relations?: string[],
+  ): Promise<Account | null> {
+    return this.accountRepository.findOne({
+      where,
+      select,
+      relations,
+    });
   }
 
   async findAll(): Promise<AccountTree[]> {

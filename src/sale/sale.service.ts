@@ -11,7 +11,6 @@ import { InventoryService } from 'src/inventory/inventory.service';
 import { RedisService } from 'src/redis/redis.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { QueryRunner, Repository } from 'typeorm';
-import { ACCOUNT_IDS } from './constants/sale.constants';
 import { CreateSaleDto, InventoryDto } from './dto/create-sale.dto';
 import { SaleInventory } from './entity/sale-inventory.entity';
 import { Sale } from './entity/sale.entity';
@@ -44,6 +43,41 @@ export class SaleService {
     return this.createTransactionInternal(dto, 'RETURN', queryRunner);
   }
 
+  // Helper to batch fetch required accounts by name
+  private async getRequiredAccounts(): Promise<{
+    costAccount: { id: string };
+    salesAccount: { id: string };
+    gstAccount: { id: string };
+    discountAccount: { id: string };
+  }> {
+    const accountNames = [
+      'Cost of Sales',
+      'Sales of Product Income',
+      'General Sales Tax',
+      'Discount Received',
+    ];
+    const accounts = await Promise.all(
+      accountNames.map(
+        (name) =>
+          this.accountService.findOne({ name }, ['id']) as Promise<{
+            id: string;
+          } | null>,
+      ),
+    );
+    if (!Array.isArray(accounts) || accounts.length !== 4) {
+      throw new NotFoundException('One or more required accounts not found');
+    }
+    const [costAccount, salesAccount, gstAccount, discountAccount] = accounts;
+    if (!costAccount)
+      throw new NotFoundException('Cost of Goods Sold account not found');
+    if (!salesAccount) throw new NotFoundException('Sales account not found');
+    if (!gstAccount)
+      throw new NotFoundException('General Sales Tax account not found');
+    if (!discountAccount)
+      throw new NotFoundException('Discount on Sale account not found');
+    return { costAccount, salesAccount, gstAccount, discountAccount };
+  }
+
   private async createTransactionInternal(
     dto: CreateSaleDto,
     type: 'SALE' | 'RETURN',
@@ -56,6 +90,10 @@ export class SaleService {
     let totalDiscount = 0;
     const inventories: SaleInventory[] = [];
     const accountUpdates: Promise<any>[] = [];
+
+    // Batch fetch required accounts for this transaction
+    const { costAccount, salesAccount, gstAccount, discountAccount } =
+      await this.getRequiredAccounts();
 
     const saleToSave = this.saleRepository.create({
       tenant: { id: tenantId },
@@ -92,7 +130,7 @@ export class SaleService {
 
     accountUpdates.push(
       this.accountService.update(
-        String(ACCOUNT_IDS.COST),
+        costAccount.id,
         {
           ...(type === 'SALE'
             ? { debitAmount: totalAmount }
@@ -118,11 +156,13 @@ export class SaleService {
       totalDiscount,
       type,
       queryRunner,
+      gstAccount.id,
+      discountAccount.id,
     );
 
     accountUpdates.push(
       this.accountService.update(
-        String(ACCOUNT_IDS.SALE),
+        salesAccount.id,
         {
           ...(type === 'SALE'
             ? { creditAmount: totalAmount }
@@ -239,11 +279,13 @@ export class SaleService {
     totalDiscount: number,
     type: 'SALE' | 'RETURN',
     queryRunner: QueryRunner,
+    gstAccountId?: string,
+    discountAccountId?: string,
   ) {
-    if (totalTax) {
+    if (totalTax && gstAccountId) {
       accountUpdates.push(
         this.accountService.update(
-          String(ACCOUNT_IDS.GST),
+          gstAccountId,
           {
             ...(type === 'SALE'
               ? { creditAmount: totalTax }
@@ -254,10 +296,10 @@ export class SaleService {
         ),
       );
     }
-    if (totalDiscount) {
+    if (totalDiscount && discountAccountId) {
       accountUpdates.push(
         this.accountService.update(
-          String(ACCOUNT_IDS.DISCOUNT),
+          discountAccountId,
           {
             ...(type === 'SALE'
               ? { debitAmount: totalDiscount }
@@ -307,6 +349,8 @@ export class SaleService {
     sale: Sale,
     queryRunner: QueryRunner,
   ): Promise<void> {
+    // Batch fetch required accounts for this transaction
+    const { gstAccount, discountAccount } = await this.getRequiredAccounts();
     // 1. Reverse inventory and account updates
     for (const item of sale.inventories) {
       const reverseItem: InventoryDto = {
@@ -347,6 +391,8 @@ export class SaleService {
       totalDiscount,
       sale.type === 'SALE' ? 'RETURN' : 'SALE',
       queryRunner,
+      gstAccount.id,
+      discountAccount.id,
     );
     await Promise.all(accountUpdates);
   }
@@ -357,6 +403,9 @@ export class SaleService {
     queryRunner: QueryRunner,
   ): Promise<Sale> {
     const tenantId = this.tenantContextService.getTenantId()!;
+    // Batch fetch required accounts for this transaction
+    const { costAccount, salesAccount, gstAccount, discountAccount } =
+      await this.getRequiredAccounts();
 
     // Fetch the existing sale and its inventories
     const existingSale = await this.saleRepository.findOne({
@@ -410,7 +459,7 @@ export class SaleService {
 
     accountUpdates.push(
       this.accountService.update(
-        String(ACCOUNT_IDS.COST),
+        costAccount.id,
         { debitAmount: totalAmount },
         queryRunner,
         true,
@@ -432,11 +481,13 @@ export class SaleService {
       totalDiscount,
       'SALE',
       queryRunner,
+      gstAccount.id,
+      discountAccount.id,
     );
 
     accountUpdates.push(
       this.accountService.update(
-        String(ACCOUNT_IDS.SALE),
+        salesAccount.id,
         { creditAmount: totalAmount },
         queryRunner,
         true,

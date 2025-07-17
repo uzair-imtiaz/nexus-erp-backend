@@ -8,7 +8,6 @@ import { EntityType } from 'src/common/enums/entity-type.enum';
 import { GenericService } from 'src/common/services/generic.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { QueryRunner, Repository } from 'typeorm';
-import { PARENT_ACCOUNT_IDS } from './constants/cutsomer.constants';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Customer } from './entity/customer.entity';
@@ -36,21 +35,33 @@ export class CustomerService extends GenericService<
     entity: Customer,
     runner?: QueryRunner,
   ): Promise<void> {
+    let account = await this.accountService.findOne(
+      {
+        name: 'Customer Openings',
+      },
+      ['id'],
+    );
     const creditAccount: CreateAccountDto = {
       name: entity.name,
       code: `${entity.code}-cr`,
       type: AccountType.SUB_ACCOUNT,
-      parentId: PARENT_ACCOUNT_IDS.CREDIT,
+      parentId: Number(account?.id),
       entityId: entity.id,
       entityType: EntityType.CUSTOMER,
       creditAmount: entity.openingBalance,
     };
 
+    account = await this.accountService.findOne(
+      {
+        name: 'Trade Receivables',
+      },
+      ['id'],
+    );
     const debitAccount: CreateAccountDto = {
       name: entity.name,
       code: `${entity.code}-dr`,
       type: AccountType.SUB_ACCOUNT,
-      parentId: PARENT_ACCOUNT_IDS.DEBIT,
+      parentId: Number(account?.id),
       entityId: entity.id,
       entityType: EntityType.CUSTOMER,
       debitAmount: entity.openingBalance,

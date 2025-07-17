@@ -4,22 +4,19 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryRunner, Repository } from 'typeorm';
-import { Bank } from './entity/bank.entity';
-import { UpdateBankDto } from './dto/update-bank.dto';
-import { CreateBankDto } from './dto/create-bank.dto';
-import { TenantContextService } from 'src/tenant/tenant-context.service';
-import { paginate, Paginated } from 'src/common/utils/paginate';
 import { plainToInstance } from 'class-transformer';
-import { CreateAccountDto } from 'src/account/dto/create-account.dto';
-import { AccountType } from 'src/account/interfaces/account-type.enum';
-import {
-  ALLOWED_FILTERS,
-  PARENT_ACCOUNT_IDS,
-} from './constants/bank.constants';
 import { AccountService } from 'src/account/account.service';
+import { CreateAccountDto } from 'src/account/dto/create-account.dto';
 import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
+import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { EntityType } from 'src/common/enums/entity-type.enum';
+import { paginate, Paginated } from 'src/common/utils/paginate';
+import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { QueryRunner, Repository } from 'typeorm';
+import { ALLOWED_FILTERS } from './constants/bank.constants';
+import { CreateBankDto } from './dto/create-bank.dto';
+import { UpdateBankDto } from './dto/update-bank.dto';
+import { Bank } from './entity/bank.entity';
 
 @Injectable()
 export class BankService {
@@ -165,21 +162,33 @@ export class BankService {
     const savedBank = await queryRunner.manager.save(Bank, bank);
     const instance = plainToInstance(Bank, savedBank);
 
+    let account = await this.accountService.findOne(
+      {
+        name: 'Bank Openings',
+      },
+      ['id'],
+    );
     const creditAccount: CreateAccountDto = {
       name: instance.name,
       code: `${instance.code}-cr`,
       type: AccountType.SUB_ACCOUNT,
-      parentId: PARENT_ACCOUNT_IDS.CREDIT,
+      parentId: Number(account?.id),
       entityId: instance.id,
       entityType: EntityType.BANK,
       creditAmount: instance.currentBalance,
     };
 
+    account = await this.accountService.findOne(
+      {
+        name: 'Cash & Bank',
+      },
+      ['id'],
+    );
     const debitAccount: CreateAccountDto = {
       name: instance.name,
       code: `${instance.code}-dr`,
       type: AccountType.SUB_ACCOUNT,
-      parentId: PARENT_ACCOUNT_IDS.DEBIT,
+      parentId: Number(account?.id),
       entityId: instance.id,
       entityType: EntityType.BANK,
       debitAmount: instance.currentBalance,

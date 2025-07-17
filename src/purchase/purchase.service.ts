@@ -11,7 +11,6 @@ import { RedisService } from 'src/redis/redis.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { VendorService } from 'src/vendor/vendor.service';
 import { QueryRunner, Repository } from 'typeorm';
-import { ACCOUNT_IDS } from './constants/purchase.constants';
 import { CreatePurchaseDto, InventoryDto } from './dto/create-purchase.dto';
 import { PurchaseInventory } from './entity/purchase-inventory.entity';
 import { Purchase } from './entity/purchase.entity';
@@ -224,7 +223,7 @@ export class PurchaseService {
     ]);
   }
 
-  private addTaxAndDiscountTransactions(
+  private async addTaxAndDiscountTransactions(
     accountUpdates: Promise<any>[],
     totalTax: number,
     totalDiscount: number,
@@ -232,9 +231,18 @@ export class PurchaseService {
     queryRunner: QueryRunner,
   ) {
     if (totalTax) {
+      const account = await this.accountService.findOne(
+        {
+          name: 'General Sales Tax',
+        },
+        ['id'],
+      );
+      if (!account) {
+        throw new NotFoundException('General Sales Tax account not found');
+      }
       accountUpdates.push(
         this.accountService.update(
-          String(ACCOUNT_IDS.GST),
+          account.id,
           {
             ...(type === 'PURCHASE'
               ? { debitAmount: totalTax }
@@ -246,9 +254,18 @@ export class PurchaseService {
       );
     }
     if (totalDiscount) {
+      const account = await this.accountService.findOne(
+        {
+          name: 'Discount on Purchase',
+        },
+        ['id'],
+      );
+      if (!account) {
+        throw new NotFoundException('Discount on Purchase account not found');
+      }
       accountUpdates.push(
         this.accountService.update(
-          String(ACCOUNT_IDS.DISCOUNT),
+          account.id,
           {
             ...(type === 'PURCHASE'
               ? { creditAmount: totalDiscount }

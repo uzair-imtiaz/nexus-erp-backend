@@ -8,7 +8,6 @@ import { QueryRunner, Repository } from 'typeorm';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
 import { AccountType } from 'src/account/interfaces/account-type.enum';
-import { PARENT_ACCOUNT_IDS } from './contsants/vendor.constants';
 import { CreateAccountDto } from 'src/account/dto/create-account.dto';
 import { AccountService } from 'src/account/account.service';
 import { EntityType } from 'src/common/enums/entity-type.enum';
@@ -35,21 +34,37 @@ export class VendorService extends GenericService<
     entity: Vendor,
     runner?: QueryRunner,
   ): Promise<void> {
+    let account = await this.accountService.findOne(
+      {
+        name: 'Trade Payables',
+      },
+      ['id'],
+    );
+    if (!account) {
+      throw new NotFoundException('Trade Payables account not found');
+    }
     const creditAccount: CreateAccountDto = {
       name: entity.name,
       code: `${entity.code}-cr`,
       type: AccountType.SUB_ACCOUNT,
-      parentId: PARENT_ACCOUNT_IDS.CREDIT,
+      parentId: Number(account?.id),
       entityId: entity.id,
       entityType: EntityType.VENDOR,
       creditAmount: entity.openingBalance,
     };
 
+    account = await this.accountService.findOne(
+      {
+        name: 'Supplier Openings',
+      },
+      ['id'],
+    );
+
     const debitAccount: CreateAccountDto = {
       name: entity.name,
       code: `${entity.code}-dr`,
       type: AccountType.SUB_ACCOUNT,
-      parentId: PARENT_ACCOUNT_IDS.DEBIT,
+      parentId: Number(account?.id),
       entityId: entity.id,
       entityType: EntityType.VENDOR,
       debitAmount: entity.openingBalance,
