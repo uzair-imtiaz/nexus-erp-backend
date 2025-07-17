@@ -1,5 +1,5 @@
 import { seedAccounts } from 'src/account/seeds';
-import AppDataSource from 'src/data-source';
+import { AppDataSource } from './data-source';
 
 AppDataSource.initialize()
   .then(async () => {
