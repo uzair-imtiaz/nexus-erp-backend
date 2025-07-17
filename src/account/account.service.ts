@@ -60,9 +60,10 @@ export class AccountService {
         .leftJoinAndSelect('account.parent', 'parent')
         .andWhere(
           new Brackets((qb) => {
-            qb.where('account.tenant = :tenantId', { tenantId }).orWhere(
-              'account.system_generated = true',
-            );
+            qb.where('account.tenant = :tenantId', { tenantId });
+            // .orWhere(
+            //   'account.system_generated = true',
+            // );
           }),
         )
         .getOne();
@@ -81,9 +82,10 @@ export class AccountService {
           .where('account.id = :id', { id: input.parentId })
           .andWhere(
             new Brackets((qb) => {
-              qb.where('account.tenant = :tenantId', { tenantId }).orWhere(
-                'account.system_generated = true',
-              );
+              qb.where('account.tenant = :tenantId', { tenantId });
+              // .orWhere(
+              //   'account.system_generated = true',
+              // );
             }),
           )
           .getOneOrFail();
@@ -133,9 +135,10 @@ export class AccountService {
       .where('account.type = :type', { type })
       .andWhere(
         new Brackets((qb) => {
-          qb.where('account.tenant = :tenantId', { tenantId }).orWhere(
-            'account.system_generated = true',
-          );
+          qb.where('account.tenant = :tenantId', { tenantId });
+          // .orWhere(
+          //   'account.system_generated = true',
+          // );
         }),
       );
 
@@ -157,7 +160,7 @@ export class AccountService {
   async findAll(): Promise<AccountTree[]> {
     const tenantId = this.tenantContextService.getTenantId()!;
     const accounts = await this.accountRepository.find({
-      where: [{ tenant: { id: tenantId } }, { systemGenerated: true }],
+      where: [{ tenant: { id: tenantId } }],
       relations: ['tenant'],
       order: { path: 'ASC' },
     });
@@ -212,9 +215,10 @@ export class AccountService {
           .where('id = :id', { id })
           .andWhere(
             new Brackets((qb) => {
-              qb.where('tenantId = :tenantId', { tenantId }).orWhere(
-                'system_generated = true',
-              );
+              qb.where('tenantId = :tenantId', { tenantId });
+              // .orWhere(
+              //   'system_generated = true',
+              // );
             }),
           )
           .execute();
@@ -251,9 +255,10 @@ export class AccountService {
         .where('id = :id', { id })
         .andWhere(
           new Brackets((qb) => {
-            qb.where('tenantId = :tenantId', { tenantId }).orWhere(
-              'system_generated = true',
-            );
+            qb.where('tenantId = :tenantId', { tenantId });
+            // .orWhere(
+            //   'system_generated = true',
+            // );
           }),
         )
         .execute();
@@ -324,9 +329,10 @@ export class AccountService {
         .where('account.id = :id', { id })
         .andWhere(
           new Brackets((qb) => {
-            qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
-              'account.system_generated = true',
-            );
+            qb.where('account.tenantId = :tenantId', { tenantId });
+            // .orWhere(
+            //   'account.system_generated = true',
+            // );
           }),
         )
         .getOneOrFail();
@@ -336,9 +342,10 @@ export class AccountService {
         .where('account.path LIKE :path', { path: `${account.path}%` })
         .andWhere(
           new Brackets((qb) => {
-            qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
-              'account.system_generated = true',
-            );
+            qb.where('account.tenantId = :tenantId', { tenantId });
+            // .orWhere(
+            //   'account.system_generated = true',
+            // );
           }),
         )
         .getMany();
@@ -452,9 +459,10 @@ export class AccountService {
           .where({ code: In(ancestorCodes) })
           .andWhere(
             new Brackets((qb) => {
-              qb.where('tenant = :tenantId', { tenantId }).orWhere(
-                'system_generated = true',
-              );
+              qb.where('tenant = :tenantId', { tenantId });
+              // .orWhere(
+              //   'system_generated = true',
+              // );
             }),
           )
           .execute();
@@ -502,9 +510,10 @@ export class AccountService {
 
       qb.andWhere(
         new Brackets((qb) => {
-          qb.where('tenant = :tenantId', { tenantId }).orWhere(
-            'system_generated = true',
-          );
+          qb.where('tenant = :tenantId', { tenantId });
+          // .orWhere(
+          //   'system_generated = true',
+          // );
         }),
       );
 
@@ -589,9 +598,10 @@ export class AccountService {
       .andWhere('account.type = :type', { type })
       .andWhere(
         new Brackets((qb) => {
-          qb.where('account.tenant = :tenantId', { tenantId }).orWhere(
-            'account.system_generated = true',
-          );
+          qb.where('account.tenant = :tenantId', { tenantId });
+          // .orWhere(
+          //   'account.system_generated = true',
+          // );
         }),
       );
     const { page, limit, ...filterFields } = filters;

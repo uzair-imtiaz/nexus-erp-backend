@@ -26,7 +26,7 @@ export class Account extends BaseEntity {
   @JoinColumn({ name: 'parent_id' })
   parent: Account;
 
-  @Column({ unique: true, type: 'varchar', length: 30 })
+  @Column({ type: 'varchar', length: 30 })
   code: string;
 
   @Column({
