@@ -13,7 +13,7 @@ import {
 import { AccountType } from '../interfaces/account-type.enum';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 
-@Unique(['code', 'tenantId'])
+@Unique(['code', 'tenant'])
 @Entity()
 export class Account extends BaseEntity {
   @Column()
