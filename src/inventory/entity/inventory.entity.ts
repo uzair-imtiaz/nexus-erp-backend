@@ -1,6 +1,12 @@
 import { Expose } from 'class-transformer';
 import { BaseEntity } from 'src/common/entities/base.entity';
-import { Column, CreateDateColumn, Entity, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  UpdateDateColumn,
+  DeleteDateColumn,
+} from 'typeorm';
 
 @Entity()
 export class Inventory extends BaseEntity {
@@ -54,4 +60,11 @@ export class Inventory extends BaseEntity {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
+
+  @DeleteDateColumn({
+    name: 'deleted_at',
+    type: 'timestamp with time zone',
+    nullable: true,
+  })
+  deletedAt: Date;
 }

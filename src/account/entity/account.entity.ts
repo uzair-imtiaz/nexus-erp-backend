@@ -9,6 +9,7 @@ import {
   ManyToOne,
   Unique,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 import { AccountType } from '../interfaces/account-type.enum';
 import { EntityType } from 'src/common/enums/entity-type.enum';
@@ -72,6 +73,13 @@ export class Account extends BaseEntity {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
+
+  @DeleteDateColumn({
+    name: 'deleted_at',
+    type: 'timestamp with time zone',
+    nullable: true,
+  })
+  deletedAt: Date;
 
   @Expose()
   getAmount(): number {
