@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,7 +10,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { AccountService } from 'src/account/account.service';
 import { CreateAccountDto } from 'src/account/dto/create-account.dto';
-import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
 import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { paginate, Paginated } from 'src/common/utils/paginate';
@@ -17,6 +18,7 @@ import { DataSource, QueryRunner, Repository } from 'typeorm';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { Inventory } from './entity/inventory.entity';
+import { JournalService } from 'src/journal/journal.service';
 
 @Injectable()
 export class InventoryService {
@@ -26,6 +28,8 @@ export class InventoryService {
     private readonly tenantContextService: TenantContextService,
     private readonly accountService: AccountService,
     private readonly dataSource: DataSource,
+    @Inject(forwardRef(() => JournalService))
+    private readonly journalService: JournalService,
   ) {}
 
   async create(createInventoryDto: CreateInventoryDto): Promise<Inventory> {
@@ -67,6 +71,7 @@ export class InventoryService {
         },
         ['id'],
       );
+      // Create accounts with zero opening balances
       const creditAccount: CreateAccountDto = {
         name: instance.name,
         code: `${instance.code}-cr`,
@@ -74,7 +79,7 @@ export class InventoryService {
         parentId: Number(account?.id),
         entityId: instance.id,
         entityType: EntityType.INVENTORY,
-        creditAmount: instance.amount,
+        creditAmount: 0,
       };
 
       account = await this.accountService.findOne(
@@ -90,19 +95,52 @@ export class InventoryService {
         parentId: Number(account?.id),
         entityId: instance.id,
         entityType: EntityType.INVENTORY,
-        debitAmount: instance.amount,
+        debitAmount: 0,
       };
-
-      await this.accountService.create(creditAccount, queryRunner);
-      await this.accountService.create(debitAccount, queryRunner);
+      const createdCreditAccount = await this.accountService.create(
+        creditAccount,
+        queryRunner,
+      );
+      const createdDebitAccount = await this.accountService.create(
+        debitAccount,
+        queryRunner,
+      );
+      // Create opening balance journal entry
+      await this.journalService.create(
+        {
+          ref: `INV-OPEN-${instance.code}`,
+          date: new Date(),
+          description: `Opening balance for inventory ${instance.name}`,
+          details: [
+            {
+              nominalAccountId: createdDebitAccount.id,
+              debit: instance.amount,
+              credit: 0,
+            },
+            {
+              nominalAccountId: createdCreditAccount.id,
+              debit: 0,
+              credit: instance.amount,
+            },
+          ],
+        },
+        queryRunner,
+      );
 
       await queryRunner.commitTransaction();
       return instance;
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
+    } catch (error: any) {
+      if (
+        queryRunner &&
+        typeof queryRunner.rollbackTransaction === 'function'
+      ) {
+        await queryRunner.rollbackTransaction();
+      }
       throw error;
     } finally {
-      await queryRunner.release();
+      if (queryRunner && typeof queryRunner.release === 'function') {
+        await queryRunner.release();
+      }
     }
   }
 
@@ -156,9 +194,8 @@ export class InventoryService {
     await queryRunner.startTransaction();
 
     try {
-      const inventory = await this.inventoryRepository.findOneBy({
-        id,
-        tenant: { id: tenantId },
+      const inventory = await queryRunner.manager.findOne(Inventory, {
+        where: { id, tenant: { id: tenantId } },
       });
       if (!inventory) {
         throw new NotFoundException(`Inventory with ID ${id} not found`);
@@ -174,21 +211,60 @@ export class InventoryService {
           `Accounts not found for inventory with ID ${id}`,
         );
       }
+      // Find debit and credit accounts
+      const debitAccount = accounts.find((a) => a.code.endsWith('-dr'));
+      const creditAccount = accounts.find((a) => a.code.endsWith('-cr'));
+      if (!debitAccount || !creditAccount) {
+        throw new NotFoundException(
+          'Debit or Credit account not found for inventory',
+        );
+      }
+      // Create reversal journal entry for the remaining inventory value
+      const amount = Number(inventory.amount);
+      if (amount !== 0) {
+        await this.journalService.create(
+          {
+            ref: `INV-DEL-${inventory.code}-${Date.now()}`,
+            date: new Date(),
+            description: `Inventory deletion for ${inventory.name}`,
+            details: [
+              {
+                nominalAccountId: debitAccount.id,
+                debit: 0,
+                credit: Math.abs(amount),
+              },
+              {
+                nominalAccountId: creditAccount.id,
+                debit: Math.abs(amount),
+                credit: 0,
+              },
+            ],
+          },
+          queryRunner,
+        );
+      }
       await Promise.all(
         accounts.map((account) =>
           this.accountService.delete(account.id, queryRunner),
         ),
       );
 
-      await this.inventoryRepository.delete(id);
+      await queryRunner.manager.softDelete(Inventory, id);
 
       await queryRunner.commitTransaction();
       return;
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
+    } catch (error: any) {
+      if (
+        queryRunner &&
+        typeof queryRunner.rollbackTransaction === 'function'
+      ) {
+        await queryRunner.rollbackTransaction();
+      }
       throw error;
     } finally {
-      await queryRunner.release();
+      if (queryRunner && typeof queryRunner.release === 'function') {
+        await queryRunner.release();
+      }
     }
   }
 
@@ -196,8 +272,8 @@ export class InventoryService {
     id: string,
     updateInventoryDto: UpdateInventoryDto,
     queryRunner?: QueryRunner,
-    accountToUpdate?: 'credit' | 'debit',
   ) {
+    // Remove unused accountToUpdate param
     let hasOwnQueryRunner = false;
     const tenantId = this.tenantContextService.getTenantId();
 
@@ -215,6 +291,8 @@ export class InventoryService {
         .andWhere('inventory.tenant.id = :tenantId', { tenantId })
         .getOne();
 
+      const oldAmount = Number(inventory?.amount);
+
       if (!inventory) {
         throw new NotFoundException(`Inventory with ID ${id} not found`);
       }
@@ -227,59 +305,84 @@ export class InventoryService {
       const updatedInventory = await queryRunner.manager.save(inventory);
       const instance = plainToInstance(Inventory, updatedInventory);
 
+      // Find related accounts
       const accounts = await this.accountService.findByEntityIdAndType(
         id,
         'inventory',
       );
-
       if (!accounts?.length) {
         throw new NotFoundException(
           `Accounts not found for inventory with ID ${id}`,
         );
       }
-
-      if (!accountToUpdate) {
-        await Promise.all(
-          accounts.map((account) => {
-            const updateData: UpdateAccountDto = {
-              ...account,
-              name: instance.name,
-              entityType: EntityType.INVENTORY,
-            };
-
-            // Determine if this is a debit or credit account
-            if (Number(account.debitAmount)) {
-              updateData['debitAmount'] = instance.amount;
-            } else if (Number(account.creditAmount)) {
-              updateData['creditAmount'] = instance.amount;
-            }
-            return this.accountService.update(
-              account.id,
-              updateData,
-              queryRunner,
-            );
-          }),
+      // Find debit and credit accounts
+      const debitAccount = accounts.find((a) => a.code.endsWith('-dr'));
+      const creditAccount = accounts.find((a) => a.code.endsWith('-cr'));
+      if (!debitAccount || !creditAccount) {
+        throw new NotFoundException(
+          'Debit or Credit account not found for inventory',
         );
-      } else {
-        const account = accounts.find(
-          (account) => !account.pathName.includes('General Reserves'),
-        )!;
+      }
 
-        const updateData: UpdateAccountDto = {
-          ...account,
-          name: instance.name,
-          entityType: EntityType.INVENTORY,
-        };
-        updateData[`${accountToUpdate}Amount`] = instance.amount;
-        await this.accountService.update(account.id, updateData, queryRunner);
+      // Calculate value difference
+      const newAmount = Number(instance.amount);
+      const diff = newAmount - oldAmount;
+      if (diff !== 0) {
+        // Create adjustment journal entry
+        await this.journalService.create(
+          {
+            ref: `INV-ADJ-${instance.code}-${Date.now()}`,
+            date: new Date(),
+            description: `Inventory adjustment for ${instance.name}`,
+            details:
+              diff > 0
+                ? [
+                    {
+                      nominalAccountId: debitAccount.id,
+                      debit: Math.abs(diff),
+                      credit: 0,
+                    },
+                    {
+                      nominalAccountId: creditAccount.id,
+                      debit: 0,
+                      credit: Math.abs(diff),
+                    },
+                  ]
+                : [
+                    {
+                      nominalAccountId: debitAccount.id,
+                      debit: 0,
+                      credit: Math.abs(diff),
+                    },
+                    {
+                      nominalAccountId: creditAccount.id,
+                      debit: Math.abs(diff),
+                      credit: 0,
+                    },
+                  ],
+          },
+          queryRunner,
+        );
       }
       if (hasOwnQueryRunner) await queryRunner.commitTransaction();
       return instance;
-    } catch (error) {
-      if (hasOwnQueryRunner) await queryRunner.rollbackTransaction();
+    } catch (error: any) {
+      if (
+        hasOwnQueryRunner &&
+        queryRunner &&
+        typeof queryRunner.rollbackTransaction === 'function'
+      ) {
+        await queryRunner.rollbackTransaction();
+      }
       throw error;
     } finally {
-      if (hasOwnQueryRunner) await queryRunner.release();
+      if (
+        hasOwnQueryRunner &&
+        queryRunner &&
+        typeof queryRunner.release === 'function'
+      ) {
+        await queryRunner.release();
+      }
     }
   }
 

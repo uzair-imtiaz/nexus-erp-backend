@@ -1,16 +1,23 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { VendorService } from 'src/vendor/vendor.service';
 import { CustomerService } from 'src/customer/customer.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { EntityType } from '../enums/entity-type.enum';
 import { BankService } from 'src/bank/bank.service';
+import { QueryRunner } from 'typeorm';
 
 @Injectable()
 export class EntityServiceManager {
   constructor(
     private vendorService: VendorService,
     private customerService: CustomerService,
-    private inventoryService: InventoryService,
+    @Inject(forwardRef(() => InventoryService))
+    private readonly inventoryService: InventoryService,
     private bankService: BankService,
   ) {}
 
@@ -18,6 +25,7 @@ export class EntityServiceManager {
     entityType: EntityType,
     entityId: string,
     amount: number,
+    queryRunner?: QueryRunner,
   ) {
     switch (entityType) {
       case EntityType.VENDOR:
@@ -39,6 +47,7 @@ export class EntityServiceManager {
           entityId,
           amount,
           'amount',
+          queryRunner,
         );
         break;
       case EntityType.BANK:

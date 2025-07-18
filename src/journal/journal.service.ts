@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { AccountService } from 'src/account/account.service';
@@ -20,6 +25,7 @@ export class JournalService {
     @InjectRepository(JournalDetail)
     private journalDetailRepository: Repository<JournalDetail>,
     private readonly tenantContextService: TenantContextService,
+    @Inject(forwardRef(() => EntityServiceManager))
     private readonly entityServiceManager: EntityServiceManager,
     private readonly accountService: AccountService,
   ) {}
@@ -41,9 +47,10 @@ export class JournalService {
         .where('account.id = :id', { id: detail.nominalAccountId })
         .andWhere(
           new Brackets((qb) => {
-            qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
-              'account.system_generated = true',
-            );
+            qb.where('account.tenantId = :tenantId', { tenantId });
+            // .orWhere(
+            //   'account.system_generated = true',
+            // );
           }),
         )
         .getOne();
@@ -70,11 +77,13 @@ export class JournalService {
         queryRunner,
       );
 
+      // causing imbalance in the accounts
       if (account.entityType) {
         await this.entityServiceManager.incrementEntityBalance(
           account.entityType as EntityType,
           account.entityId,
           debit - credit,
+          queryRunner,
         );
       }
 
@@ -179,9 +188,10 @@ export class JournalService {
         .where('account.id = :id', { id: detail.nominalAccountId })
         .andWhere(
           new Brackets((qb) => {
-            qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
-              'account.system_generated = true',
-            );
+            qb.where('account.tenantId = :tenantId', { tenantId });
+            // .orWhere(
+            //   'account.system_generated = true',
+            // );
           }),
         )
         .getOne();
@@ -256,9 +266,10 @@ export class JournalService {
           .where('account.id = :id', { id: accountId })
           .andWhere(
             new Brackets((qb) => {
-              qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
-                'account.system_generated = true',
-              );
+              qb.where('account.tenantId = :tenantId', { tenantId });
+              // .orWhere(
+              //   'account.system_generated = true',
+              // );
             }),
           )
           .getOne();
@@ -313,9 +324,10 @@ export class JournalService {
         .where('account.id = :id', { id: detail.nominalAccount.id })
         .andWhere(
           new Brackets((qb) => {
-            qb.where('account.tenantId = :tenantId', { tenantId }).orWhere(
-              'account.system_generated = true',
-            );
+            qb.where('account.tenantId = :tenantId', { tenantId });
+            // .orWhere(
+            //   'account.system_generated = true',
+            // );
           }),
         )
         .getOne();

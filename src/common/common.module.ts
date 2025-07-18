@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { AccountModule } from 'src/account/account.module';
 import { BankModule } from 'src/bank/bank.module';
 import { CustomerModule } from 'src/customer/customer.module';
@@ -10,7 +10,7 @@ import { EntityServiceManager } from './services/entity-service-manager.service'
 @Module({
   imports: [
     VendorModule,
-    InventoryModule,
+    forwardRef(() => InventoryModule),
     CustomerModule,
     BankModule,
     AccountModule,

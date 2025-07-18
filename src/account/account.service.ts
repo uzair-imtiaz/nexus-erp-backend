@@ -329,16 +329,14 @@ export class AccountService {
 
   // Delete Account and Descendants with Amount Reversal
   async delete(id: string, queryRunner?: QueryRunner): Promise<void> {
-    let ownQueryRunner = false;
     const tenantId = this.tenantContextService.getTenantId()!;
-
+    let ownQueryRunner = false;
     if (!queryRunner) {
       queryRunner = this.dataSource.createQueryRunner();
       await queryRunner.connect();
       await queryRunner.startTransaction();
       ownQueryRunner = true;
     }
-
     try {
       const account = await queryRunner.manager
         .createQueryBuilder(Account, 'account')
@@ -346,9 +344,6 @@ export class AccountService {
         .andWhere(
           new Brackets((qb) => {
             qb.where('account.tenantId = :tenantId', { tenantId });
-            // .orWhere(
-            //   'account.system_generated = true',
-            // );
           }),
         )
         .getOneOrFail();
@@ -359,9 +354,6 @@ export class AccountService {
         .andWhere(
           new Brackets((qb) => {
             qb.where('account.tenantId = :tenantId', { tenantId });
-            // .orWhere(
-            //   'account.system_generated = true',
-            // );
           }),
         )
         .getMany();
@@ -375,13 +367,13 @@ export class AccountService {
         (sum, acc) => sum + (acc.debitAmount ?? 0),
         0,
       );
-      const totalAmount = descendants.reduce((sum, acc) => sum + acc.amount, 0);
 
-      // Delete descendants
-      await queryRunner.manager.remove(descendants);
+      // Soft delete descendants
+      for (const desc of descendants) {
+        await queryRunner.manager.softDelete(Account, desc.id);
+      }
 
       const ancestorCodes = account.path.split('/').slice(0, -1);
-
       if (ancestorCodes.length > 0) {
         // Propagate amounts to ancestors
         if (totalCredit !== 0) {
@@ -392,7 +384,6 @@ export class AccountService {
             tenantId,
           );
         }
-
         if (totalDebit !== 0) {
           await this.propagateAmount(
             queryRunner,
@@ -404,7 +395,6 @@ export class AccountService {
       }
       await this.redisService.deleteHash(`account:${id}`);
       const key = getKeyForEntityFromAccountForRedis(account, tenantId);
-
       await this.redisService.deleteHash(key);
       if (ownQueryRunner) await queryRunner.commitTransaction();
     } catch (error) {
