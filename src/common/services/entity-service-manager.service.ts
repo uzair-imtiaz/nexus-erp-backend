@@ -18,6 +18,7 @@ export class EntityServiceManager {
     private customerService: CustomerService,
     @Inject(forwardRef(() => InventoryService))
     private readonly inventoryService: InventoryService,
+    @Inject(forwardRef(() => BankService))
     private bankService: BankService,
   ) {}
 
@@ -33,6 +34,7 @@ export class EntityServiceManager {
           entityId,
           amount,
           'openingBalance',
+          queryRunner,
         );
         break;
       case EntityType.CUSTOMER:
@@ -40,6 +42,7 @@ export class EntityServiceManager {
           entityId,
           amount,
           'openingBalance',
+          queryRunner,
         );
         break;
       case EntityType.INVENTORY:
@@ -55,6 +58,7 @@ export class EntityServiceManager {
           entityId,
           amount,
           'currentBalance',
+          queryRunner,
         );
         break;
       default:

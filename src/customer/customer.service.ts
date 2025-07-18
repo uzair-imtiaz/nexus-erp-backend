@@ -27,7 +27,15 @@ export class CustomerService extends GenericService<
     super(customerRepository, tenantContextService, 'customer');
   }
 
-  async incrementBalance(id: string, amount: number, column: string) {
+  async incrementBalance(
+    id: string,
+    amount: number,
+    column: string,
+    queryRunner?: QueryRunner,
+  ) {
+    if (queryRunner) {
+      await queryRunner.manager.increment(Customer, { id }, column, amount);
+    }
     await this.customerRepository.increment({ id }, column, amount);
   }
 

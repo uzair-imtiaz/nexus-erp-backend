@@ -26,8 +26,17 @@ export class VendorService extends GenericService<
     super(vendorRepository, tenantContextService, 'vendor');
   }
 
-  async incrementBalance(id: string, amount: number, column: string) {
-    await this.vendorRepository.increment({ id }, column, amount);
+  async incrementBalance(
+    id: string,
+    amount: number,
+    column: string,
+    queryRunner?: QueryRunner,
+  ) {
+    if (queryRunner) {
+      await queryRunner.manager.increment(Vendor, { id }, column, amount);
+    } else {
+      await this.vendorRepository.increment({ id }, column, amount);
+    }
   }
 
   protected async afterCreate(

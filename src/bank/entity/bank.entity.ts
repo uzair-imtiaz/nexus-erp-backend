@@ -1,5 +1,11 @@
 import { BaseEntity } from 'src/common/entities/base.entity';
-import { Column, CreateDateColumn, Entity, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  UpdateDateColumn,
+  DeleteDateColumn,
+} from 'typeorm';
 
 @Entity()
 export class Bank extends BaseEntity {
@@ -29,6 +35,13 @@ export class Bank extends BaseEntity {
 
   @Column({ type: 'timestamptz', name: 'opening_date' })
   openingDate: Date;
+
+  @DeleteDateColumn({
+    name: 'deleted_at',
+    type: 'timestamp with time zone',
+    nullable: true,
+  })
+  deletedAt: Date;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
   createdAt: Date;
