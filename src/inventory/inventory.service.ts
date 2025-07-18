@@ -130,15 +130,12 @@ export class InventoryService {
       await queryRunner.commitTransaction();
       return instance;
     } catch (error: any) {
-      if (
-        queryRunner &&
-        typeof queryRunner.rollbackTransaction === 'function'
-      ) {
+      if (queryRunner) {
         await queryRunner.rollbackTransaction();
       }
       throw error;
     } finally {
-      if (queryRunner && typeof queryRunner.release === 'function') {
+      if (queryRunner) {
         await queryRunner.release();
       }
     }
@@ -367,20 +364,12 @@ export class InventoryService {
       if (hasOwnQueryRunner) await queryRunner.commitTransaction();
       return instance;
     } catch (error: any) {
-      if (
-        hasOwnQueryRunner &&
-        queryRunner &&
-        typeof queryRunner.rollbackTransaction === 'function'
-      ) {
+      if (hasOwnQueryRunner) {
         await queryRunner.rollbackTransaction();
       }
       throw error;
     } finally {
-      if (
-        hasOwnQueryRunner &&
-        queryRunner &&
-        typeof queryRunner.release === 'function'
-      ) {
+      if (hasOwnQueryRunner) {
         await queryRunner.release();
       }
     }
