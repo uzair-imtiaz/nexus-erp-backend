@@ -14,6 +14,7 @@ import { QueryRunner } from 'typeorm';
 @Injectable()
 export class EntityServiceManager {
   constructor(
+    @Inject(forwardRef(() => VendorService))
     private vendorService: VendorService,
     private customerService: CustomerService,
     @Inject(forwardRef(() => InventoryService))

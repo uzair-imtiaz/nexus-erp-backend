@@ -1,5 +1,7 @@
 import {
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -24,7 +26,8 @@ export class BankService {
     @InjectRepository(Bank) private bankRepository: Repository<Bank>,
     private readonly tenantContextService: TenantContextService,
     private readonly accountService: AccountService,
-    private readonly journalService: JournalService, // Inject JournalService
+    @Inject(forwardRef(() => JournalService))
+    private readonly journalService: JournalService,
   ) {}
 
   async findAll(filters: Record<string, any>): Promise<Paginated<Bank>> {

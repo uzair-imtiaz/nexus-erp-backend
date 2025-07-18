@@ -1,5 +1,10 @@
 import { BaseEntity } from 'src/common/entities/base.entity';
-import { Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 export class ContactBaseEntity extends BaseEntity {
   @Column({ nullable: false })
@@ -43,4 +48,11 @@ export class ContactBaseEntity extends BaseEntity {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
+
+  @DeleteDateColumn({
+    name: 'deleted_at',
+    type: 'timestamp with time zone',
+    nullable: true,
+  })
+  deletedAt: Date;
 }
