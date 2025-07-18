@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BankController } from './bank.controller';
 import { BankService } from './bank.service';
@@ -8,6 +8,7 @@ import { AccountModule } from 'src/account/account.module';
 import { TransactionInterceptor } from 'src/common/interceptors/transaction.interceptor';
 import { DataSource } from 'typeorm';
 import { AuthModule } from 'src/auth/auth.module';
+import { JournalModule } from 'src/journal/journal.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AuthModule } from 'src/auth/auth.module';
     TenantModule,
     AccountModule,
     AuthModule,
+    forwardRef(() => JournalModule),
   ],
   controllers: [BankController],
   providers: [

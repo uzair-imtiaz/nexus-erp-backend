@@ -9,10 +9,10 @@ import { EntityServiceManager } from './services/entity-service-manager.service'
 
 @Module({
   imports: [
-    VendorModule,
+    forwardRef(() => VendorModule),
     forwardRef(() => InventoryModule),
     CustomerModule,
-    BankModule,
+    forwardRef(() => BankModule),
     AccountModule,
   ],
   providers: [EntityServiceManager, AccountManagerService],

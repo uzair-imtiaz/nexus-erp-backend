@@ -1,5 +1,7 @@
 import {
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -7,10 +9,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { AccountService } from 'src/account/account.service';
 import { CreateAccountDto } from 'src/account/dto/create-account.dto';
-import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
 import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { paginate, Paginated } from 'src/common/utils/paginate';
+import { JournalService } from 'src/journal/journal.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { QueryRunner, Repository } from 'typeorm';
 import { ALLOWED_FILTERS } from './constants/bank.constants';
@@ -24,6 +26,8 @@ export class BankService {
     @InjectRepository(Bank) private bankRepository: Repository<Bank>,
     private readonly tenantContextService: TenantContextService,
     private readonly accountService: AccountService,
+    @Inject(forwardRef(() => JournalService))
+    private readonly journalService: JournalService,
   ) {}
 
   async findAll(filters: Record<string, any>): Promise<Paginated<Bank>> {
@@ -78,35 +82,65 @@ export class BankService {
       throw new NotFoundException(`Bank with ID ${id} not found`);
     }
 
+    const oldBalance = Number(bank.currentBalance);
     Object.assign(bank, updateBankDto);
     const updatedBank = await queryRunner.manager.save(Bank, bank);
+    const instance = plainToInstance(Bank, updatedBank);
 
     const accounts = await this.accountService.findByEntityIdAndType(
       id,
       'bank',
     );
-    const instance = plainToInstance(Bank, updatedBank);
 
     if (!accounts?.length) {
       throw new NotFoundException(`Accounts not found for bank with ID ${id}`);
     }
-
-    await Promise.all(
-      accounts.map((account) => {
-        const { code: _, ...rest } = account;
-        const updateData: UpdateAccountDto = {
-          ...rest,
-          entityType: EntityType.BANK,
-          name: instance.name,
-        };
-        if (Number(account.debitAmount)) {
-          updateData['debitAmount'] = instance.currentBalance;
-        } else if (Number(account.creditAmount)) {
-          updateData['creditAmount'] = instance.currentBalance;
-        }
-        return this.accountService.update(account.id, updateData, queryRunner);
-      }),
-    );
+    // Find debit and credit accounts
+    const debitAccount = accounts.find((a) => a.code.endsWith('-dr'));
+    const creditAccount = accounts.find((a) => a.code.endsWith('-cr'));
+    if (!debitAccount || !creditAccount) {
+      throw new NotFoundException('Debit or Credit account not found for bank');
+    }
+    // Calculate value difference
+    const newBalance = Number(instance.currentBalance);
+    const diff = newBalance - oldBalance;
+    if (diff !== 0) {
+      // Create adjustment journal entry
+      await this.journalService.create(
+        {
+          ref: `BANK-ADJ-${instance.code}-${Date.now()}`,
+          date: new Date(),
+          description: `Bank balance adjustment for ${instance.name}`,
+          details:
+            diff > 0
+              ? [
+                  {
+                    nominalAccountId: debitAccount.id,
+                    debit: Math.abs(diff),
+                    credit: 0,
+                  },
+                  {
+                    nominalAccountId: creditAccount.id,
+                    debit: 0,
+                    credit: Math.abs(diff),
+                  },
+                ]
+              : [
+                  {
+                    nominalAccountId: debitAccount.id,
+                    debit: 0,
+                    credit: Math.abs(diff),
+                  },
+                  {
+                    nominalAccountId: creditAccount.id,
+                    debit: Math.abs(diff),
+                    credit: 0,
+                  },
+                ],
+        },
+        queryRunner,
+      );
+    }
     return updatedBank;
   }
 
@@ -129,13 +163,42 @@ export class BankService {
     if (!accounts?.length) {
       throw new NotFoundException(`Accounts not found for bank with ID ${id}`);
     }
+    // Find debit and credit accounts
+    const debitAccount = accounts.find((a) => a.code.endsWith('-dr'));
+    const creditAccount = accounts.find((a) => a.code.endsWith('-cr'));
+    if (!debitAccount || !creditAccount) {
+      throw new NotFoundException('Debit or Credit account not found for bank');
+    }
+    // Create reversal journal entry for the remaining bank balance
+    const amount = Number(bank.currentBalance);
+    if (amount !== 0) {
+      await this.journalService.create(
+        {
+          ref: `BANK-DEL-${bank.code}-${Date.now()}`,
+          date: new Date(),
+          description: `Bank deletion for ${bank.name}`,
+          details: [
+            {
+              nominalAccountId: debitAccount.id,
+              debit: 0,
+              credit: Math.abs(amount),
+            },
+            {
+              nominalAccountId: creditAccount.id,
+              debit: Math.abs(amount),
+              credit: 0,
+            },
+          ],
+        },
+        queryRunner,
+      );
+    }
     await Promise.all(
       accounts.map((account) =>
         this.accountService.delete(account.id, queryRunner),
       ),
     );
-
-    await queryRunner.manager.delete(Bank, id);
+    await queryRunner.manager.softDelete(Bank, id);
     return { message: 'Bank deleted successfully' };
   }
 
@@ -175,7 +238,7 @@ export class BankService {
       parentId: Number(account?.id),
       entityId: instance.id,
       entityType: EntityType.BANK,
-      creditAmount: instance.currentBalance,
+      creditAmount: 0,
     };
 
     account = await this.accountService.findOne(
@@ -191,16 +254,51 @@ export class BankService {
       parentId: Number(account?.id),
       entityId: instance.id,
       entityType: EntityType.BANK,
-      debitAmount: instance.currentBalance,
+      debitAmount: 0,
     };
 
-    await this.accountService.create(creditAccount, queryRunner);
-    await this.accountService.create(debitAccount, queryRunner);
-
+    const createdCreditAccount = await this.accountService.create(
+      creditAccount,
+      queryRunner,
+    );
+    const createdDebitAccount = await this.accountService.create(
+      debitAccount,
+      queryRunner,
+    );
+    // Create opening balance journal entry
+    await this.journalService.create(
+      {
+        ref: `BANK-OPEN-${instance.code}`,
+        date: new Date(),
+        description: `Opening balance for bank ${instance.name}`,
+        details: [
+          {
+            nominalAccountId: createdDebitAccount.id,
+            debit: instance.currentBalance,
+            credit: 0,
+          },
+          {
+            nominalAccountId: createdCreditAccount.id,
+            debit: 0,
+            credit: instance.currentBalance,
+          },
+        ],
+      },
+      queryRunner,
+    );
     return instance;
   }
 
-  async incrementBalance(id: string, amount: number, column: string) {
-    await this.bankRepository.increment({ id }, column, amount);
+  async incrementBalance(
+    id: string,
+    amount: number,
+    column: string,
+    queryRunner?: QueryRunner,
+  ) {
+    if (queryRunner) {
+      await queryRunner.manager.increment(Bank, { id }, column, amount);
+    } else {
+      await this.bankRepository.increment({ id }, column, amount);
+    }
   }
 }
