@@ -197,7 +197,6 @@ export class PurchaseService {
     type: 'PURCHASE' | 'RETURN',
     journalDetails: JournalDetailDto[],
     queryRunner: QueryRunner,
-    accountUpdates: Promise<any>[] = [],
   ) {
     const tenantId = this.tenantContextService.getTenantId()!;
     const quantityChange = type === 'PURCHASE' ? item.quantity : -item.quantity;
@@ -247,6 +246,7 @@ export class PurchaseService {
       nominalAccountId: invAccount.id,
       debit: type === 'PURCHASE' ? amount : 0,
       credit: type === 'RETURN' ? amount : 0,
+      description: `Inventory ${type} - Item ID: ${item.id}, Amount: ${amount}`,
     });
 
     // await Promise.all([
