@@ -19,7 +19,7 @@ export class ContactBaseEntity extends BaseEntity {
   @Column({ nullable: true, name: 'contact_number' })
   contactNumber: string;
 
-  @Column({ unique: true })
+  @Column()
   code: string;
 
   @Column({ nullable: true })

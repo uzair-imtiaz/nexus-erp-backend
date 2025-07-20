@@ -9,6 +9,7 @@ import { AccountModule } from 'src/account/account.module';
 import { VendorModule } from 'src/vendor/vendor.module';
 import { RedisModule } from 'src/redis/redis.module';
 import { InventoryModule } from 'src/inventory/inventory.module';
+import { JournalModule } from 'src/journal/journal.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { InventoryModule } from 'src/inventory/inventory.module';
     RedisModule,
     InventoryModule,
     VendorModule,
+    JournalModule,
   ],
   controllers: [PurchaseController],
   providers: [PurchaseService],
