@@ -6,14 +6,16 @@ import {
   Entity,
   UpdateDateColumn,
   DeleteDateColumn,
+  Unique,
 } from 'typeorm';
 
 @Entity()
+@Unique(['code', 'tenant'])
 export class Inventory extends BaseEntity {
   @Column()
   name: string;
 
-  @Column({ unique: true })
+  @Column()
   code: string;
 
   @Column()
