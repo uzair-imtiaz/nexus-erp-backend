@@ -4,11 +4,16 @@ import { plainToInstance } from 'class-transformer';
 import { AccountService } from 'src/account/account.service';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { paginate, Paginated } from 'src/common/utils/paginate';
-import { Customer } from 'src/customer/entity/customer.entity';
 import { Inventory } from 'src/inventory/entity/inventory.entity';
 import { InventoryService } from 'src/inventory/inventory.service';
+import {
+  CreateJournalDto,
+  JournalDetailDto,
+} from 'src/journal/dto/create-journal.dto';
+import { JournalService } from 'src/journal/journal.service';
 import { RedisService } from 'src/redis/redis.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { Vendor } from 'src/vendor/entity/vendor.entity';
 import { VendorService } from 'src/vendor/vendor.service';
 import { QueryRunner, Repository } from 'typeorm';
 import { CreatePurchaseDto, InventoryDto } from './dto/create-purchase.dto';
@@ -27,6 +32,7 @@ export class PurchaseService {
     private readonly vendorService: VendorService,
     private readonly inventoryService: InventoryService,
     private readonly redisService: RedisService,
+    private readonly journalService: JournalService,
   ) {}
 
   async createPurchase(
@@ -49,12 +55,13 @@ export class PurchaseService {
     queryRunner: QueryRunner,
   ): Promise<Purchase> {
     const tenantId = this.tenantContextService.getTenantId()!;
+    const journalDetails: JournalDetailDto[] = [];
 
     let totalAmount = 0;
     let totalTax = 0;
     let totalDiscount = 0;
     const inventories: PurchaseInventory[] = [];
-    const accountUpdates: Promise<any>[] = [];
+    // const accountUpdates: Promise<any>[] = [];
 
     const purchaseToSave = this.purchaseRepository.create({
       tenant: { id: tenantId },
@@ -74,7 +81,13 @@ export class PurchaseService {
       totalTax += tax;
       totalDiscount += discount;
 
-      await this.handleInventoryUpdate(item, amount, type, queryRunner);
+      await this.handleInventoryUpdate(
+        item,
+        amount,
+        type,
+        journalDetails,
+        queryRunner,
+      );
 
       inventories.push(
         this.purchaseInventoryRepository.create({
@@ -95,23 +108,34 @@ export class PurchaseService {
       dto.vendorId,
       netAmount,
       type,
-      accountUpdates,
+      journalDetails,
       queryRunner,
     );
 
-    this.addTaxAndDiscountTransactions(
-      accountUpdates,
+    await this.addTaxAndDiscountTransactions(
+      journalDetails,
       totalTax,
       totalDiscount,
       type,
       queryRunner,
     );
 
-    await Promise.all(accountUpdates);
+    // await Promise.all(accountUpdates);
+    const createJournalDto: CreateJournalDto = {
+      ref: dto.ref,
+      date: dto.date,
+      details: journalDetails,
+    };
+    const journal = await this.journalService.create(
+      createJournalDto,
+      queryRunner,
+    );
 
+    const savedJournal = await queryRunner.manager.save(journal);
     await queryRunner.manager.save(PurchaseInventory, inventories);
 
     savedTransaction.totalAmount = totalAmount;
+    savedTransaction.journal = savedJournal;
     await queryRunner.manager.save(savedTransaction);
     return savedTransaction;
   }
@@ -128,7 +152,7 @@ export class PurchaseService {
     id: string,
     amount: number,
     type: 'PURCHASE' | 'RETURN',
-    accountUpdates: Promise<any>[] = [],
+    journalDetails: JournalDetailDto[],
     queryRunner: QueryRunner,
   ) {
     const tenantId = this.tenantContextService.getTenantId()!;
@@ -136,36 +160,43 @@ export class PurchaseService {
       id,
       type === 'PURCHASE' ? -amount : amount,
       'openingBalance',
+      queryRunner,
     );
 
-    const account = await this.redisService.getHash<Customer>(
-      `accountByEntity:${tenantId}:${EntityType.CUSTOMER}:${id}:regular`,
+    const account = await this.redisService.getHash<Vendor>(
+      `accountByEntity:${tenantId}:${EntityType.VENDOR}:${id}:regular`,
     );
 
     if (!account) {
-      throw new NotFoundException('Customer account not found');
+      throw new NotFoundException('Vendor account not found');
     }
 
-    accountUpdates.push(
-      this.accountService.update(
-        account.id,
-        {
-          ...(type === 'PURCHASE'
-            ? { creditAmount: amount }
-            : { debitAmount: amount }),
-        },
-        queryRunner,
-        true,
-      ),
-    );
+    // accountUpdates.push(
+    //   this.accountService.update(
+    //     account.id,
+    //     {
+    //       ...(type === 'PURCHASE'
+    //         ? { creditAmount: amount }
+    //         : { debitAmount: amount }),
+    //     },
+    //     queryRunner,
+    //     true,
+    //   ),
+    // );
+    journalDetails.push({
+      nominalAccountId: account.id,
+      credit: type === 'PURCHASE' ? amount : 0,
+      debit: type === 'PURCHASE' ? 0 : amount,
+      description: `Purchase from ${account.name}`,
+    });
   }
 
   private async handleInventoryUpdate(
     item: InventoryDto,
     amount: number,
     type: 'PURCHASE' | 'RETURN',
+    journalDetails: JournalDetailDto[],
     queryRunner: QueryRunner,
-    accountUpdates: Promise<any>[] = [],
   ) {
     const tenantId = this.tenantContextService.getTenantId()!;
     const quantityChange = type === 'PURCHASE' ? item.quantity : -item.quantity;
@@ -187,44 +218,55 @@ export class PurchaseService {
     const newQuantity = inventory.quantity + quantityChange;
     const newAmount = inventory.amount + amountChange;
 
-    await this.inventoryService.update(item.id, {
-      quantity: newQuantity,
-      amount: newAmount,
-      baseRate:
-        (inventory.quantity * inventory.baseRate + newQuantity * item.rate) /
-        (inventory.quantity + newQuantity),
-    });
-    accountUpdates.push(
-      this.accountService.update(
-        invAccount.id,
-        {
-          ...(type === 'PURCHASE'
-            ? { debitAmount: amount }
-            : { creditAmount: amount }),
-        },
-        queryRunner,
-        true,
-      ),
+    await this.inventoryService.update(
+      item.id,
+      {
+        quantity: newQuantity,
+        amount: newAmount,
+        baseRate:
+          (inventory.quantity * inventory.baseRate + newQuantity * item.rate) /
+          (inventory.quantity + newQuantity),
+      },
+      queryRunner,
+      false,
     );
+    // accountUpdates.push(
+    //   this.accountService.update(
+    //     invAccount.id,
+    //     {
+    //       ...(type === 'PURCHASE'
+    //         ? { debitAmount: amount }
+    //         : { creditAmount: amount }),
+    //     },
+    //     queryRunner,
+    //     true,
+    //   ),
+    // );
+    journalDetails.push({
+      nominalAccountId: invAccount.id,
+      debit: type === 'PURCHASE' ? amount : 0,
+      credit: type === 'RETURN' ? amount : 0,
+      description: `Inventory ${type} - Item ID: ${item.id}, Amount: ${amount}`,
+    });
 
-    await Promise.all([
-      this.inventoryService.incrementBalance(
-        item.id,
-        quantityChange,
-        'quantity',
-        queryRunner,
-      ),
-      this.inventoryService.incrementBalance(
-        item.id,
-        amountChange,
-        'amount',
-        queryRunner,
-      ),
-    ]);
+    // await Promise.all([
+    //   this.inventoryService.incrementBalance(
+    //     item.id,
+    //     quantityChange,
+    //     'quantity',
+    //     queryRunner,
+    //   ),
+    //   this.inventoryService.incrementBalance(
+    //     item.id,
+    //     amountChange,
+    //     'amount',
+    //     queryRunner,
+    //   ),
+    // ]);
   }
 
   private async addTaxAndDiscountTransactions(
-    accountUpdates: Promise<any>[],
+    journalDetails: JournalDetailDto[],
     totalTax: number,
     totalDiscount: number,
     type: 'PURCHASE' | 'RETURN',
@@ -240,18 +282,23 @@ export class PurchaseService {
       if (!account) {
         throw new NotFoundException('General Sales Tax account not found');
       }
-      accountUpdates.push(
-        this.accountService.update(
-          account.id,
-          {
-            ...(type === 'PURCHASE'
-              ? { debitAmount: totalTax }
-              : { creditAmount: totalTax }),
-          },
-          queryRunner,
-          true,
-        ),
-      );
+      // accountUpdates.push(
+      //   this.accountService.update(
+      //     account.id,
+      //     {
+      //       ...(type === 'PURCHASE'
+      //         ? { debitAmount: totalTax }
+      //         : { creditAmount: totalTax }),
+      //     },
+      //     queryRunner,
+      //     true,
+      //   ),
+      // );
+      journalDetails.push({
+        nominalAccountId: account.id,
+        debit: type === 'PURCHASE' ? totalTax : 0,
+        credit: type === 'RETURN' ? totalTax : 0,
+      });
     }
     if (totalDiscount) {
       const account = await this.accountService.findOne(
@@ -263,18 +310,23 @@ export class PurchaseService {
       if (!account) {
         throw new NotFoundException('Discount on Purchase account not found');
       }
-      accountUpdates.push(
-        this.accountService.update(
-          account.id,
-          {
-            ...(type === 'PURCHASE'
-              ? { creditAmount: totalDiscount }
-              : { debitAmount: totalDiscount }),
-          },
-          queryRunner,
-          true,
-        ),
-      );
+      // accountUpdates.push(
+      //   this.accountService.update(
+      //     account.id,
+      //     {
+      //       ...(type === 'PURCHASE'
+      //         ? { creditAmount: totalDiscount }
+      //         : { debitAmount: totalDiscount }),
+      //     },
+      //     queryRunner,
+      //     true,
+      //   ),
+      // );
+      journalDetails.push({
+        nominalAccountId: account.id,
+        credit: type === 'PURCHASE' ? totalDiscount : 0,
+        debit: type === 'RETURN' ? totalDiscount : 0,
+      });
     }
   }
 

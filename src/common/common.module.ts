@@ -11,7 +11,7 @@ import { EntityServiceManager } from './services/entity-service-manager.service'
   imports: [
     forwardRef(() => VendorModule),
     forwardRef(() => InventoryModule),
-    CustomerModule,
+    forwardRef(() => CustomerModule),
     forwardRef(() => BankModule),
     AccountModule,
   ],

@@ -265,10 +265,12 @@ export class InventoryService {
     }
   }
 
+  // TODO: Need to refactor so that there are two functions with single responsibility => 1 with journal and other without it
   async update(
     id: string,
     updateInventoryDto: UpdateInventoryDto,
     queryRunner?: QueryRunner,
+    shouldCreateJournal = true,
   ) {
     // Remove unused accountToUpdate param
     let hasOwnQueryRunner = false;
@@ -324,7 +326,7 @@ export class InventoryService {
       // Calculate value difference
       const newAmount = Number(instance.amount);
       const diff = newAmount - oldAmount;
-      if (diff !== 0) {
+      if (diff !== 0 && shouldCreateJournal) {
         // Create adjustment journal entry
         await this.journalService.create(
           {

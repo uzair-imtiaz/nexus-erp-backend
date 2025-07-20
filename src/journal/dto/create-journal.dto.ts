@@ -10,7 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-class JournalDetailDto {
+export class JournalDetailDto {
   @IsString()
   @IsNotEmpty()
   nominalAccountId: string;
@@ -31,7 +31,7 @@ class JournalDetailDto {
 export class CreateJournalDto {
   @IsString()
   @IsNotEmpty()
-  ref: string;
+  ref?: string;
 
   @IsDate()
   @IsNotEmpty()

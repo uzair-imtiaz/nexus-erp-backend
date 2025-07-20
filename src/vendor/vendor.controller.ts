@@ -7,7 +7,9 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { VendorService } from './vendor.service';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
@@ -16,6 +18,8 @@ import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { VendorFilterDto } from './dto/vendor-filter.dto';
 import { TenantGuard } from 'src/tenant/guards/tenant.guard';
+import { TransactionInterceptor } from 'src/common/interceptors/transaction.interceptor';
+import { TransactionRequest } from 'src/common/interfaces/TransactionRequest';
 
 @Controller('vendor')
 @UseGuards(TenantGuard)
@@ -28,8 +32,12 @@ export class VendorController {
     success: true,
     message: 'Vendor created successfully',
   })
-  async create(@Body() createVendorDto: CreateVendorDto) {
-    return await this.vendorService.create(createVendorDto);
+  @UseInterceptors(TransactionInterceptor)
+  async create(
+    @Body() createVendorDto: CreateVendorDto,
+    @Req() req: TransactionRequest,
+  ) {
+    return await this.vendorService.create(createVendorDto, req.queryRunner);
   }
 
   @Get()

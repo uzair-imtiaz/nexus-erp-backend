@@ -33,7 +33,7 @@ export class PurchaseController {
     @Body() createPurchaseDto: CreatePurchaseDto,
     @Req() req: TransactionRequest,
   ) {
-    if (createPurchaseDto.type.toLowerCase() === 'sale')
+    if (createPurchaseDto.type.toLowerCase() === 'purchase')
       return await this.purchaseService.createPurchase(
         createPurchaseDto,
         req.queryRunner,

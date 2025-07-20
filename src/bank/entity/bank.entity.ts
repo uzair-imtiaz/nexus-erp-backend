@@ -5,9 +5,11 @@ import {
   Entity,
   UpdateDateColumn,
   DeleteDateColumn,
+  Unique,
 } from 'typeorm';
 
 @Entity()
+@Unique(['code', 'tenant'])
 export class Bank extends BaseEntity {
   @Column()
   name: string;
@@ -18,7 +20,7 @@ export class Bank extends BaseEntity {
   @Column()
   iban: string;
 
-  @Column({ unique: true })
+  @Column()
   code: string;
 
   @Column({

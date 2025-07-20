@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   forwardRef,
   Inject,
   Injectable,
@@ -35,6 +36,17 @@ export class JournalService {
     queryRunner: QueryRunner,
   ): Promise<Journal> {
     const tenantId = this.tenantContextService.getTenantId()!;
+    // const totalDebit = createJournalDto.details.reduce(
+    //   (sum, detail) => sum + detail.debit,
+    //   0,
+    // );
+    // const totalCredit = createJournalDto.details.reduce(
+    //   (sum, detail) => sum + detail.credit,
+    //   0,
+    // );
+    // if (totalDebit !== totalCredit)
+    //   throw new BadRequestException('Unbalanced journal entry');
+
     const journal = this.journalRepository.create({
       ...createJournalDto,
       tenant: { id: tenantId },
