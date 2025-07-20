@@ -12,9 +12,14 @@ import { RedisService } from 'src/redis/redis.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { QueryRunner, Repository } from 'typeorm';
 import { CreateSaleDto, InventoryDto } from './dto/create-sale.dto';
+import { UpdateSaleDto } from './dto/update-sale.dto';
 import { SaleInventory } from './entity/sale-inventory.entity';
 import { Sale } from './entity/sale.entity';
-import { UpdateSaleDto } from './dto/update-sale.dto';
+import {
+  CreateJournalDto,
+  JournalDetailDto,
+} from 'src/journal/dto/create-journal.dto';
+import { JournalService } from 'src/journal/journal.service';
 
 @Injectable()
 export class SaleService {
@@ -27,6 +32,7 @@ export class SaleService {
     private readonly inventoryService: InventoryService,
     private readonly accountService: AccountService,
     private readonly redisService: RedisService,
+    private readonly journalService: JournalService,
   ) {}
   // Public API
   async createSale(
@@ -89,7 +95,7 @@ export class SaleService {
     let totalTax = 0;
     let totalDiscount = 0;
     const inventories: SaleInventory[] = [];
-    const accountUpdates: Promise<any>[] = [];
+    const journalDetails: JournalDetailDto[] = [];
 
     // Batch fetch required accounts for this transaction
     const { costAccount, salesAccount, gstAccount, discountAccount } =
@@ -112,7 +118,13 @@ export class SaleService {
       totalTax += tax;
       totalDiscount += discount;
 
-      await this.handleInventoryUpdate(item, amount, type, queryRunner);
+      await this.handleInventoryUpdate(
+        item,
+        amount,
+        type,
+        journalDetails,
+        queryRunner,
+      );
 
       inventories.push(
         this.saleInventoryRepository.create({
@@ -128,54 +140,59 @@ export class SaleService {
       );
     }
 
-    accountUpdates.push(
-      this.accountService.update(
-        costAccount.id,
-        {
-          ...(type === 'SALE'
-            ? { debitAmount: totalAmount }
-            : { creditAmount: totalAmount }),
-        },
-        queryRunner,
-        true,
-      ),
-    );
+    // accountUpdates.push(
+    //   this.accountService.update(
+    //     costAccount.id,
+    //     {
+    //       ...(type === 'SALE'
+    //         ? { debitAmount: totalAmount }
+    //         : { creditAmount: totalAmount }),
+    //     },
+    //     queryRunner,
+    //     true,
+    //   ),
+    // );
+    journalDetails.push({
+      nominalAccountId: costAccount.id,
+      debit: type === 'SALE' ? totalAmount : 0,
+      credit: type === 'SALE' ? 0 : totalAmount,
+      description: `Sale ${savedTransaction.ref ?? savedTransaction.id}`,
+    });
 
     const netAmount = totalAmount + totalTax - totalDiscount;
     await this.updateCustomerBalance(
       dto.customerId,
       netAmount,
       type,
-      accountUpdates,
-      queryRunner,
+      journalDetails,
     );
 
     this.addTaxAndDiscountTransactions(
-      accountUpdates,
+      journalDetails,
       totalTax,
       totalDiscount,
       type,
-      queryRunner,
       gstAccount.id,
       discountAccount.id,
     );
 
-    accountUpdates.push(
-      this.accountService.update(
-        salesAccount.id,
-        {
-          ...(type === 'SALE'
-            ? { creditAmount: totalAmount }
-            : { debitAmount: totalAmount }),
-        },
-        queryRunner,
-        true,
-      ),
-    );
-    await Promise.all(accountUpdates);
+    journalDetails.push({
+      nominalAccountId: salesAccount.id,
+      credit: type === 'SALE' ? totalAmount : 0,
+      debit: type === 'SALE' ? 0 : totalAmount,
+      description: `Sale ${savedTransaction.ref ?? savedTransaction.id}`,
+    });
 
     await queryRunner.manager.save(SaleInventory, inventories);
 
+    const journalDto: CreateJournalDto = {
+      details: journalDetails,
+      ref: savedTransaction.ref ?? savedTransaction.id,
+      date: savedTransaction.date,
+      description: `Sale ${savedTransaction.ref ?? savedTransaction.id}`,
+    };
+    const journal = await this.journalService.create(journalDto, queryRunner);
+    savedTransaction.journal = journal;
     savedTransaction.totalAmount = totalAmount;
     await queryRunner.manager.save(savedTransaction);
     return savedTransaction;
@@ -193,8 +210,7 @@ export class SaleService {
     id: string,
     amount: number,
     type: 'SALE' | 'RETURN',
-    accountUpdates: Promise<any>[] = [],
-    queryRunner: QueryRunner,
+    journalDetails: JournalDetailDto[],
   ) {
     const tenantId = this.tenantContextService.getTenantId()!;
     await this.customerService.incrementBalance(
@@ -211,26 +227,20 @@ export class SaleService {
       throw new NotFoundException('Customer account not found');
     }
 
-    accountUpdates.push(
-      this.accountService.update(
-        account.id,
-        {
-          ...(type === 'SALE'
-            ? { debitAmount: amount }
-            : { creditAmount: amount }),
-        },
-        queryRunner,
-        true,
-      ),
-    );
+    journalDetails.push({
+      nominalAccountId: account.id,
+      debit: type === 'SALE' ? amount : 0,
+      credit: type === 'SALE' ? 0 : amount,
+      description: `Sale ${type}`,
+    });
   }
 
   private async handleInventoryUpdate(
     item: InventoryDto,
     amount: number,
     type: 'SALE' | 'RETURN',
+    journalDetails: JournalDetailDto[],
     queryRunner: QueryRunner,
-    accountUpdates: Promise<any>[] = [],
   ) {
     const tenantId = this.tenantContextService.getTenantId()!;
     const quantityChange = type === 'SALE' ? -item.quantity : item.quantity;
@@ -244,18 +254,24 @@ export class SaleService {
       throw new NotFoundException('Inventory account not found');
     }
 
-    accountUpdates.push(
-      this.accountService.update(
-        invAccount.id,
-        {
-          ...(type === 'SALE'
-            ? { creditAmount: amount }
-            : { debitAmount: amount }),
-        },
-        queryRunner,
-        true,
-      ),
-    );
+    // accountUpdates.push(
+    //   this.accountService.update(
+    //     invAccount.id,
+    //     {
+    //       ...(type === 'SALE'
+    //         ? { creditAmount: amount }
+    //         : { debitAmount: amount }),
+    //     },
+    //     queryRunner,
+    //     true,
+    //   ),
+    // );
+    journalDetails.push({
+      nominalAccountId: invAccount.id,
+      credit: type === 'SALE' ? amount : 0,
+      debit: type === 'SALE' ? 0 : amount,
+      description: `Sale`,
+    });
 
     await Promise.all([
       this.inventoryService.incrementBalance(
@@ -274,44 +290,31 @@ export class SaleService {
   }
 
   private addTaxAndDiscountTransactions(
-    accountUpdates: Promise<any>[],
+    journalDetails: JournalDetailDto[],
     totalTax: number,
     totalDiscount: number,
     type: 'SALE' | 'RETURN',
-    queryRunner: QueryRunner,
     gstAccountId?: string,
     discountAccountId?: string,
   ) {
     if (totalTax && gstAccountId) {
-      accountUpdates.push(
-        this.accountService.update(
-          gstAccountId,
-          {
-            ...(type === 'SALE'
-              ? { creditAmount: totalTax }
-              : { debitAmount: totalTax }),
-          },
-          queryRunner,
-          true,
-        ),
-      );
+      journalDetails.push({
+        nominalAccountId: gstAccountId,
+        credit: type === 'SALE' ? totalTax : 0,
+        debit: type === 'SALE' ? 0 : totalTax,
+        description: `Sale ${type}`,
+      });
     }
+
     if (totalDiscount && discountAccountId) {
-      accountUpdates.push(
-        this.accountService.update(
-          discountAccountId,
-          {
-            ...(type === 'SALE'
-              ? { debitAmount: totalDiscount }
-              : { creditAmount: totalDiscount }),
-          },
-          queryRunner,
-          true,
-        ),
-      );
+      journalDetails.push({
+        nominalAccountId: discountAccountId,
+        debit: type === 'SALE' ? totalDiscount : 0,
+        credit: type === 'SALE' ? 0 : totalDiscount,
+        description: `Sale ${type}`,
+      });
     }
   }
-
   async findAll(filters: Record<string, any>): Promise<Paginated<Sale>> {
     const tenantId = this.tenantContextService.getTenantId();
     const queryBuilder = this.saleRepository
@@ -331,7 +334,7 @@ export class SaleService {
   }
 
   async remove(id: string): Promise<void> {
-    await this.saleRepository.delete(id);
+    await this.saleRepository.softDelete(id);
   }
 
   async findOne(id: string): Promise<Sale> {
@@ -347,10 +350,11 @@ export class SaleService {
 
   private async reverseSaleEffects(
     sale: Sale,
+    gstAccount: { id: string },
+    discountAccount: { id: string },
     queryRunner: QueryRunner,
+    journalDetails: JournalDetailDto[],
   ): Promise<void> {
-    // Batch fetch required accounts for this transaction
-    const { gstAccount, discountAccount } = await this.getRequiredAccounts();
     // 1. Reverse inventory and account updates
     for (const item of sale.inventories) {
       const reverseItem: InventoryDto = {
@@ -365,6 +369,7 @@ export class SaleService {
         reverseItem,
         item.rate * item.quantity,
         sale.type === 'SALE' ? 'RETURN' : 'SALE',
+        journalDetails,
         queryRunner,
       );
     }
@@ -377,24 +382,20 @@ export class SaleService {
       0,
     );
     const netAmount = totalAmount + totalTax - totalDiscount;
-    const accountUpdates: Promise<any>[] = [];
     await this.updateCustomerBalance(
       sale.customer.id,
       netAmount,
       sale.type === 'SALE' ? 'RETURN' : 'SALE',
-      accountUpdates,
-      queryRunner,
+      journalDetails,
     );
     this.addTaxAndDiscountTransactions(
-      accountUpdates,
+      journalDetails,
       totalTax,
       totalDiscount,
       sale.type === 'SALE' ? 'RETURN' : 'SALE',
-      queryRunner,
       gstAccount.id,
       discountAccount.id,
     );
-    await Promise.all(accountUpdates);
   }
 
   async update(
@@ -406,6 +407,7 @@ export class SaleService {
     // Batch fetch required accounts for this transaction
     const { costAccount, salesAccount, gstAccount, discountAccount } =
       await this.getRequiredAccounts();
+    const journalDetails: JournalDetailDto[] = [];
 
     // Fetch the existing sale and its inventories
     const existingSale = await this.saleRepository.findOne({
@@ -417,9 +419,17 @@ export class SaleService {
     }
 
     // Reverse the effects of the old sale
-    await this.reverseSaleEffects(existingSale, queryRunner);
+    await this.reverseSaleEffects(
+      existingSale,
+      gstAccount,
+      discountAccount,
+      queryRunner,
+      journalDetails,
+    );
     // 3. Remove old inventories
-    await queryRunner.manager.delete(SaleInventory, { sale: { id: saleId } });
+    await queryRunner.manager.softDelete(SaleInventory, {
+      sale: { id: saleId },
+    });
 
     // Apply the new sale data (similar to createSale)
     let totalAmount = 0;
@@ -440,7 +450,13 @@ export class SaleService {
         totalTax += tax;
         totalDiscount += discount;
 
-        await this.handleInventoryUpdate(item, amount, 'SALE', queryRunner);
+        await this.handleInventoryUpdate(
+          item,
+          amount,
+          'SALE',
+          journalDetails,
+          queryRunner,
+        );
 
         inventories.push(
           this.saleInventoryRepository.create({
@@ -471,39 +487,44 @@ export class SaleService {
       dto.customerId!,
       netAmount,
       'SALE',
-      accountUpdates,
-      queryRunner,
+      journalDetails,
     );
 
     this.addTaxAndDiscountTransactions(
-      accountUpdates,
+      journalDetails,
       totalTax,
       totalDiscount,
       'SALE',
-      queryRunner,
       gstAccount.id,
       discountAccount.id,
     );
 
-    accountUpdates.push(
-      this.accountService.update(
-        salesAccount.id,
-        { creditAmount: totalAmount },
-        queryRunner,
-        true,
-      ),
-    );
-    await Promise.all(accountUpdates);
+    journalDetails.push({
+      nominalAccountId: salesAccount.id,
+      credit: totalAmount,
+      debit: 0,
+      description: `Sale ${existingSale.ref ?? existingSale.id}`,
+    });
 
     await queryRunner.manager.save(SaleInventory, inventories);
 
     existingSale.totalAmount = totalAmount;
+    const journalDto: CreateJournalDto = {
+      details: journalDetails,
+      ref: existingSale.ref ?? existingSale.id,
+      date: existingSale.date,
+      description: `Sale ${existingSale.ref ?? existingSale.id}`,
+    };
+    const journal = await this.journalService.create(journalDto, queryRunner);
+    existingSale.journal = journal;
     await queryRunner.manager.save(existingSale);
     return existingSale;
   }
 
   async delete(id: string, queryRunner: QueryRunner): Promise<void> {
     const tenantId = this.tenantContextService.getTenantId();
+    const { gstAccount, discountAccount } = await this.getRequiredAccounts();
+    const journalDetails: JournalDetailDto[] = [];
     // Fetch the sale and its inventories
     const sale = await this.saleRepository.findOne({
       where: { id, tenant: { id: tenantId } },
@@ -514,10 +535,22 @@ export class SaleService {
     }
 
     // Reverse all effects
-    await this.reverseSaleEffects(sale, queryRunner);
+    await this.reverseSaleEffects(
+      sale,
+      gstAccount,
+      discountAccount,
+      queryRunner,
+      journalDetails,
+    );
 
-    // Delete SaleInventory and Sale
-    await queryRunner.manager.delete(SaleInventory, { sale: { id } });
-    await queryRunner.manager.delete(Sale, { id });
+    const journalDto: CreateJournalDto = {
+      details: journalDetails,
+      ref: sale.ref ?? sale.id,
+      date: sale.date,
+      description: `Sale ${sale.ref ?? sale.id} deleting`,
+    };
+    await this.journalService.create(journalDto, queryRunner);
+    await queryRunner.manager.softDelete(Sale, { id });
+    await queryRunner.manager.softDelete(SaleInventory, { sale: { id } });
   }
 }
