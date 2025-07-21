@@ -33,6 +33,9 @@ export class Inventory extends BaseEntity {
   })
   baseRate: number;
 
+  @Column({ name: 'selling_rate', nullable: true })
+  sellingRate: number;
+
   @Column({ nullable: true })
   category: string;
 

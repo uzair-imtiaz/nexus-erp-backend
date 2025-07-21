@@ -28,6 +28,11 @@ export class CreateInventoryDto {
   @Type(() => Number)
   baseRate: number;
 
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  sellingRate?: number;
+
   @IsNotEmpty()
   @IsString()
   category: string;

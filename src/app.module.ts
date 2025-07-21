@@ -23,6 +23,7 @@ import { RedisModule } from './redis/redis.module';
 import { PurchaseModule } from './purchase/purchase.module';
 import { FormulationModule } from './formulation/formulation.module';
 import { ProductionModule } from './production/production.module';
+import { ReportsModule } from './reports/reports.module';
 import redisConfig from './config/redis.config';
 
 @Module({
@@ -55,6 +56,7 @@ import redisConfig from './config/redis.config';
     PurchaseModule,
     FormulationModule,
     ProductionModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [
