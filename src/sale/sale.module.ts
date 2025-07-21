@@ -9,6 +9,7 @@ import { SaleInventory } from './entity/sale-inventory.entity';
 import { Sale } from './entity/sale.entity';
 import { SaleController } from './sale.controller';
 import { SaleService } from './sale.service';
+import { JournalModule } from 'src/journal/journal.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { SaleService } from './sale.service';
     CustomerModule,
     InventoryModule,
     RedisModule,
+    JournalModule,
   ],
   controllers: [SaleController],
   providers: [SaleService],
