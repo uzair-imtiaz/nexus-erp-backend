@@ -7,16 +7,7 @@ export class ReportsService {
   constructor(private readonly journalService: JournalService) {}
 
   async getTrialBalance(query: TrialBalanceReportDto) {
-    const { date_from, date_to, nominal_account_ids } = query;
-
-    const params: any = {
-      date_from,
-      date_to,
-    };
-    if (nominal_account_ids?.length) {
-      params.nominal_account_ids = nominal_account_ids;
-    }
-    const journalsResponse = await this.journalService.findAll(params);
+    const journalsResponse = await this.journalService.findAll(query);
 
     const journals = journalsResponse.data;
 
@@ -33,6 +24,22 @@ export class ReportsService {
       }),
     );
 
-    return accountEntries;
+    const map = new Map<
+      string,
+      { id: string; debit: number; credit: number; name: string }
+    >();
+
+    for (const entry of accountEntries) {
+      if (map.has(entry.id)) {
+        const existing = map.get(entry.id)!;
+        existing.debit += entry.debit;
+        existing.credit += entry.credit;
+      } else {
+        map.set(entry.id, { ...entry });
+      }
+    }
+
+    const trialBalance = Array.from(map.values());
+    return trialBalance;
   }
 }

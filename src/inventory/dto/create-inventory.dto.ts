@@ -29,7 +29,7 @@ export class CreateInventoryDto {
   baseRate: number;
 
   @IsNumber()
-  @IsPositive()
+  @IsOptional()
   @Type(() => Number)
   sellingRate?: number;
 

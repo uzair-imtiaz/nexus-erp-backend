@@ -18,5 +18,3 @@ export class TrialBalanceReportDto {
   )
   nominal_account_ids?: string[];
 }
-
-export class TrialBalanceReportResponseDto {}
