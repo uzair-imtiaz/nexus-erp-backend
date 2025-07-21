@@ -244,7 +244,7 @@ export class ProductionService {
       // }
       journalDetails.push({
         nominalAccountId: String(inventoryAccount.id),
-        debit: product.quantityRequired,
+        debit: amount,
         credit: 0,
         description: 'Production',
       });
@@ -305,7 +305,6 @@ export class ProductionService {
       queryRunner,
     );
     production.journal = journal;
-    await queryRunner.manager.save(journal);
     await queryRunner.manager.save(production);
   }
 
