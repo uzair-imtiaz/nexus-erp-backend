@@ -30,6 +30,9 @@ export class JournalFilterDto {
   @IsOptional()
   @IsString({ each: true })
   @IsArray()
+  @Transform(({ value }) =>
+    Array.isArray(value) ? value.map(String) : [String(value)],
+  )
   nominal_account_ids?: string[];
 
   @IsOptional()
