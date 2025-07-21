@@ -16,6 +16,11 @@ import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { QueryRunner, Repository } from 'typeorm';
 import { CreateProductionDto } from './dto/create-production.dto';
 import { Production } from './entity/production.entity';
+import { JournalService } from 'src/journal/journal.service';
+import {
+  CreateJournalDto,
+  JournalDetailDto,
+} from 'src/journal/dto/create-journal.dto';
 
 @Injectable()
 export class ProductionService {
@@ -27,6 +32,7 @@ export class ProductionService {
     private readonly accountService: AccountService,
     private readonly redisService: RedisService,
     private readonly tenantContextService: TenantContextService,
+    private readonly journalService: JournalService,
   ) {}
 
   async create(
@@ -49,7 +55,8 @@ export class ProductionService {
     let workInProgressAmount = 0;
 
     const inventoryPromises: Promise<any>[] = [];
-    const creditPromises: Promise<any>[] = [];
+    // const creditPromises: Promise<any>[] = [];
+    const journalDetails: JournalDetailDto[] = [];
 
     for (const ingredient of formulation.ingredients) {
       // Inventory decrement
@@ -89,13 +96,19 @@ export class ProductionService {
         }
 
         // Credit account
-        creditPromises.push(
-          this.accountService.credit(
-            String(inventoryAccount.id),
-            ingredient.amount,
-            queryRunner,
-          ),
-        );
+        // creditPromises.push(
+        //   this.accountService.credit(
+        //     String(inventoryAccount.id),
+        //     ingredient.amount,
+        //     queryRunner,
+        //   ),
+        // );
+        journalDetails.push({
+          nominalAccountId: String(inventoryAccount.id),
+          debit: 0,
+          credit: ingredient.amount,
+          description: 'Production',
+        });
 
         workInProgressAmount += ingredient.amount;
       })();
@@ -106,7 +119,7 @@ export class ProductionService {
 
     // Run all inventory updates and Redis/DB resolutions + credits in parallel
     await Promise.all(inventoryPromises);
-    await Promise.all(creditPromises);
+    // await Promise.all(creditPromises);
 
     // Debit WIP after credits
     const wipAccount = await this.accountService.findOne(
@@ -116,16 +129,33 @@ export class ProductionService {
     if (!wipAccount) {
       throw new NotFoundException('Work In Progress account not found');
     }
-    await this.accountService.debit(
-      wipAccount.id,
-      workInProgressAmount,
+    // await this.accountService.debit(
+    //   wipAccount.id,
+    //   workInProgressAmount,
+    //   queryRunner,
+    // );
+    journalDetails.push({
+      nominalAccountId: wipAccount.id,
+      debit: workInProgressAmount,
+      credit: 0,
+      description: 'Production',
+    });
+
+    const createJournalDto: CreateJournalDto = {
+      date: createProductionDto.date,
+      description: 'Production Added',
+      details: journalDetails,
+    };
+
+    const journal = await this.journalService.create(
+      createJournalDto,
       queryRunner,
     );
-
     // Save production
     return await this.productionRepository.save({
       ...createProductionDto,
       formulation: { id: createProductionDto.formulationId },
+      journal: { id: journal.id },
       status: 'In Progress',
       tenant: { id: tenantId },
     });
@@ -164,7 +194,8 @@ export class ProductionService {
     const { formulation } = production;
     let totalProductAmount = 0;
     const inventoryPromises: Promise<any>[] = [];
-    const accountPromises: Promise<any>[] = [];
+    // const accountPromises: Promise<any>[] = [];
+    const journalDetails: JournalDetailDto[] = [];
 
     for (const product of formulation.products) {
       const amount =
@@ -203,44 +234,79 @@ export class ProductionService {
         ),
       );
 
-      accountPromises.push(
-        this.accountService.debit(
-          String(inventoryAccount.id),
-          amount,
-          queryRunner,
-        ),
-      );
-    }
-    // Credit WIP account by total
+      //   accountPromises.push(
+      //     this.accountService.debit(
+      //       String(inventoryAccount.id),
+      //       amount,
+      //       queryRunner,
+      //     ),
+      //   );
+      // }
+      journalDetails.push({
+        nominalAccountId: String(inventoryAccount.id),
+        debit: product.quantityRequired,
+        credit: 0,
+        description: 'Production',
+      });
+      // Credit WIP account by total
 
-    const wipAccount = await this.accountService.findOne(
-      { name: 'Work In Progress' },
-      ['id'],
-    );
-    if (!wipAccount) {
-      throw new NotFoundException('Work In Progress account not found');
+      const wipAccount = await this.accountService.findOne(
+        { name: 'Work In Progress' },
+        ['id'],
+      );
+      if (!wipAccount) {
+        throw new NotFoundException('Work In Progress account not found');
+      }
+      // accountPromises.push(
+      //   this.accountService.credit(
+      //     wipAccount.id,
+      //     totalProductAmount,
+      //     queryRunner,
+      //   ),
+      // );
+      journalDetails.push({
+        nominalAccountId: wipAccount.id,
+        debit: 0,
+        credit: totalProductAmount,
+        description: 'Production',
+      });
     }
-    accountPromises.push(
-      this.accountService.credit(
-        wipAccount.id,
-        totalProductAmount,
-        queryRunner,
-      ),
-    );
+    // const accountPromises: Promise<any>[] = [];
+    // const accountPromises: Promise<any>[] = [];
 
     for (const expense of formulation.expenses) {
       const amount = Number(expense.amount);
-      accountPromises.push(
-        this.accountService.credit(
-          String(expense.expense_account_id),
-          amount,
-          queryRunner,
-        ),
-      );
+      // accountPromises.push(
+      //   this.accountService.credit(
+      //     String(expense.expense_account_id),
+      //     amount,
+      //     queryRunner,
+      //   ),
+      // );
+
+      journalDetails.push({
+        nominalAccountId: String(expense.expense_account_id),
+        debit: 0,
+        credit: amount,
+        description: 'Production',
+      });
     }
 
     await Promise.all(inventoryPromises);
-    await Promise.all(accountPromises);
+
+    const createJournalDto: CreateJournalDto = {
+      ref: 'Production',
+      date: new Date(),
+      description: 'Production',
+      details: journalDetails,
+    };
+    const journal = await this.journalService.create(
+      createJournalDto,
+      queryRunner,
+    );
+    production.journal = journal;
+    await queryRunner.manager.save(journal);
+    await queryRunner.manager.save(production);
   }
 
   async findAll(filters: Record<string, any>): Promise<Paginated<Production>> {
