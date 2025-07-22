@@ -67,7 +67,7 @@ export class InventoryService {
 
       let account = await this.accountService.findOne(
         {
-          name: 'Customer Openings',
+          name: 'Stock Openings',
         },
         ['id'],
       );
