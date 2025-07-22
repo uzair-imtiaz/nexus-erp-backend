@@ -75,10 +75,16 @@ export class AuthController {
         throw new BadRequestException('Refresh token is missing');
       }
 
-      res.clearCookie('accessToken');
-      res.clearCookie('refreshToken');
-      res.clearCookie('tenantId');
+      const cookieOptions = {
+        secure: true,
+        sameSite: 'none' as const,
+        domain: '.mintsbook.com',
+        path: '/',
+      };
 
+      res.clearCookie('accessToken', { ...cookieOptions, httpOnly: true });
+      res.clearCookie('refreshToken', cookieOptions);
+      res.clearCookie('tenantId', { ...cookieOptions });
       const response = await this.authService.logout(refreshToken);
 
       return response;
