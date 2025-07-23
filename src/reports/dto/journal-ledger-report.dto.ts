@@ -31,6 +31,7 @@ export class JournalLedgerReportDto {
   nominal_account_ids?: string[];
 
   @IsBoolean()
+  @IsOptional()
   @Transform(({ value }) => {
     if (typeof value === 'boolean') return value;
     if (typeof value === 'string') {
@@ -38,12 +39,13 @@ export class JournalLedgerReportDto {
     }
     return false;
   })
-  balance_forward: boolean;
+  balance_forward?: boolean;
 }
 
 export class JournalLedgerReportResponseDto {
   @IsDate()
-  date: Date;
+  @IsOptional()
+  date?: Date;
 
   @IsString()
   id: string;

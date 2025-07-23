@@ -55,7 +55,7 @@ export class ReportsService {
   }
 
   async getJournalLedger(query: JournalLedgerReportDto) {
-    const { balance_forward, ...restQuery } = query;
+    const { balance_forward = false, ...restQuery } = query;
 
     let accountIds = query.nominal_account_ids || [];
     const accountMap: Map<string, Partial<Account>> = new Map();
@@ -159,15 +159,6 @@ export class ReportsService {
       }
     }
 
-    // 5. Sort rows: account name -> date -> journal id
-    rows.sort((a, b) => {
-      if (a.account.name !== b.account.name)
-        return (a.account.name || '').localeCompare(b.account.name || '');
-      if (a.date !== b.date)
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
-      return String(a.id).localeCompare(String(b.id));
-    });
-
     // 6. Calculate running balances
     const runningBalance: Record<string, number> = {
       ...Object.fromEntries(
@@ -196,7 +187,7 @@ export class ReportsService {
         openingRows.push({
           id: accId,
           ref: 'BF',
-          date: query.date_from!,
+          date: account.createdAt,
           description: 'Balance Forwarded',
           account,
           debit: bf.debit,
