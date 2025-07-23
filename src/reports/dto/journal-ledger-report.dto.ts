@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  Min,
 } from 'class-validator';
 import { Account } from 'src/account/entity/account.entity';
 
@@ -56,14 +57,16 @@ export class JournalLedgerReportResponseDto {
   ref?: string;
 
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   debit: number;
 
   @IsNumber()
+  @Min(0)
   @IsPositive()
   credit: number;
 
   @IsNumber()
+  @Min(0)
   balance?: number;
 
   account: Partial<Account>;

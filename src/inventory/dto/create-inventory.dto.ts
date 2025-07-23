@@ -43,6 +43,7 @@ export class CreateInventoryDto {
   baseUnit: string;
 
   @IsDate()
+  @Type(() => Date)
   @IsNotEmpty()
   openingDate: Date;
 

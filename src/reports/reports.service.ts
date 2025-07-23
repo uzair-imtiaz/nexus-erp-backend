@@ -71,7 +71,7 @@ export class ReportsService {
 
       // Populate accountMap with these accounts
       for (const acc of descendantAccounts) {
-        accountMap.set(acc.id, acc);
+        accountMap.set(String(acc.id), acc);
       }
     }
 
@@ -162,7 +162,7 @@ export class ReportsService {
     // 5. Sort rows: account name -> date -> journal id
     rows.sort((a, b) => {
       if (a.account.name !== b.account.name)
-        return a.account.name!.localeCompare(b.account.name!);
+        return (a.account.name || '').localeCompare(b.account.name || '');
       if (a.date !== b.date)
         return new Date(a.date).getTime() - new Date(b.date).getTime();
       return String(a.id).localeCompare(String(b.id));
