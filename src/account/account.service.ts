@@ -478,57 +478,6 @@ export class AccountService {
     }
   }
 
-  private async propagateAmountInDirection(
-    queryRunner: QueryRunner,
-    account: Account,
-    amountData: { type: 'debitAmount' | 'creditAmount'; amount: number },
-    direction: 'up' | 'down',
-    tenantId: string,
-  ) {
-    try {
-      const { type, amount } = amountData;
-      if (amount === 0) return;
-
-      const qb = queryRunner.manager.createQueryBuilder().update(Account);
-
-      qb.set({
-        [type]: () => `"${accountColumnNameMap[type]}" + ${amount}`,
-      });
-
-      if (direction === 'up') {
-        // If no ancestors, skip propagation
-        const ancestorCodes = account.path.split('/').slice(0, -1);
-        if (ancestorCodes.length === 0) return;
-
-        qb.where({ code: In(ancestorCodes) });
-      } else if (direction === 'down') {
-        // If no children/descendants, skip propagation
-        const childCount = await queryRunner.manager.count(Account, {
-          where: {
-            path: Like(`${account.path}/%`),
-            tenant: { id: tenantId },
-          },
-        });
-        if (childCount === 0) return;
-
-        qb.where('path LIKE :path', { path: `${account.path}/%` });
-      }
-
-      qb.andWhere(
-        new Brackets((qb) => {
-          qb.where('tenant = :tenantId', { tenantId });
-          // .orWhere(
-          //   'system_generated = true',
-          // );
-        }),
-      );
-
-      await qb.execute();
-    } catch (error) {
-      throw error;
-    }
-  }
-
   private buildTree(accounts: Account[]): AccountTree[] {
     const map = new Map<string, AccountTree>();
     const roots: AccountTree[] = [];
@@ -605,9 +554,6 @@ export class AccountService {
       .andWhere(
         new Brackets((qb) => {
           qb.where('account.tenant = :tenantId', { tenantId });
-          // .orWhere(
-          //   'account.system_generated = true',
-          // );
         }),
       );
     const { page, limit, ...filterFields } = filters;
@@ -626,8 +572,8 @@ export class AccountService {
   async copySystemAccountsForTenant(newTenant: Tenant): Promise<void> {
     const systemAccounts = await this.accountRepository.find({
       where: { systemGenerated: true },
-      order: { path: 'ASC' }, // Ensure parent accounts come before children
-      relations: ['parent'], // Needed to access sysAcc.parent.id
+      order: { path: 'ASC' },
+      relations: ['parent'],
     });
 
     const oldToNewAccountMap = new Map<string, Account>();
@@ -660,5 +606,46 @@ export class AccountService {
         oldToNewAccountMap.set(sysAcc.id, saved);
       }
     });
+  }
+
+  async findAccountsByIds(ids: string[]): Promise<Account[]> {
+    const tenantId = this.tenantContextService.getTenantId();
+    return this.accountRepository
+      .createQueryBuilder('account')
+      .where('account.id IN (:...ids)', { ids })
+      .andWhere('account.tenant = :tenantId', { tenantId })
+      .getMany();
+  }
+
+  async findDescendantAccounts(
+    accountIds: string[],
+    select?: (keyof Account)[],
+  ): Promise<Account[]> {
+    const tenantId = this.tenantContextService.getTenantId();
+    const baseAccounts = await this.findAccountsByIds(accountIds);
+    const allAccounts: Account[] = [];
+
+    for (const account of baseAccounts) {
+      if ([AccountType.SUB_ACCOUNT].includes(account.type)) {
+        allAccounts.push(account);
+      } else {
+        const queryBuilder = this.accountRepository
+          .createQueryBuilder('account')
+          .where('account.path LIKE :path', { path: `${account.path}/%` })
+          .andWhere('account.type IN (:...types)', {
+            types: [AccountType.ACCOUNT, AccountType.SUB_ACCOUNT],
+          })
+          .andWhere('account.tenant = :tenantId', { tenantId });
+
+        if (select?.length) {
+          queryBuilder.select(select.map((col) => `account.${col}`));
+        }
+
+        const descendants = await queryBuilder.getMany();
+        allAccounts.push(...descendants);
+      }
+    }
+
+    return allAccounts;
   }
 }

@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsDate,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -40,6 +41,10 @@ export class CreateInventoryDto {
   @IsString()
   @IsNotEmpty()
   baseUnit: string;
+
+  @IsDate()
+  @IsNotEmpty()
+  openingDate: Date;
 
   @IsStringNumberMap({
     message:
