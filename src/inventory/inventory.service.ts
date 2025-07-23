@@ -67,7 +67,7 @@ export class InventoryService {
 
       let account = await this.accountService.findOne(
         {
-          name: 'Customer Openings',
+          name: 'Stock Openings',
         },
         ['id'],
       );
@@ -109,7 +109,7 @@ export class InventoryService {
       await this.journalService.create(
         {
           ref: `INV-OPEN-${instance.code}`,
-          date: new Date(),
+          date: instance.openingDate,
           description: `Opening balance for inventory ${instance.name}`,
           details: [
             {
@@ -331,7 +331,7 @@ export class InventoryService {
         await this.journalService.create(
           {
             ref: `INV-ADJ-${instance.code}-${Date.now()}`,
-            date: new Date(),
+            date: instance.openingDate,
             description: `Inventory adjustment for ${instance.name}`,
             details:
               diff > 0

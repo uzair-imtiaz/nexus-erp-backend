@@ -150,8 +150,11 @@ export class JournalService {
       });
     }
     if (date_to) {
+      const endOfDay = new Date(date_to);
+      endOfDay.setHours(23, 59, 59, 999);
+
       queryBuilder.andWhere('journal.date <= :dateTo', {
-        dateTo: date_to as string,
+        dateTo: endOfDay.toISOString(),
       });
     }
 

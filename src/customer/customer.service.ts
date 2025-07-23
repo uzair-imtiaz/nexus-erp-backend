@@ -93,7 +93,7 @@ export class CustomerService extends GenericService<
     await this.journalService.create(
       {
         ref: `CUSTOMER-OPEN-${entity.code}`,
-        date: new Date(),
+        date: entity.openingBalanceDate,
         description: `Opening balance for customer ${entity.name}`,
         details: [
           {
@@ -148,7 +148,7 @@ export class CustomerService extends GenericService<
       await this.journalService.create(
         {
           ref: `CUSTOMER-ADJ-${entity.code}-${Date.now()}`,
-          date: new Date(),
+          date: entity.openingBalanceDate,
           description: `Customer opening balance adjustment for ${entity.name}`,
           details:
             diff > 0

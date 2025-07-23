@@ -296,7 +296,7 @@ export class ProductionService {
 
     const createJournalDto: CreateJournalDto = {
       ref: 'Production',
-      date: new Date(),
+      date: production.date,
       description: 'Production',
       details: journalDetails,
     };

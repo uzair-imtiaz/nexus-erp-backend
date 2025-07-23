@@ -43,6 +43,13 @@ export class Inventory extends BaseEntity {
   baseUnit: string;
 
   @Column({
+    name: 'opening_date',
+    type: 'timestamp with time zone',
+    nullable: true,
+  })
+  openingDate: Date;
+
+  @Column({
     nullable: false,
     type: 'decimal',
     precision: 18,
