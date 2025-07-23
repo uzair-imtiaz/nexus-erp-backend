@@ -109,7 +109,7 @@ export class BankService {
       await this.journalService.create(
         {
           ref: `BANK-ADJ-${instance.code}-${Date.now()}`,
-          date: new Date(),
+          date: instance.openingDate,
           description: `Bank balance adjustment for ${instance.name}`,
           details:
             diff > 0
@@ -269,7 +269,7 @@ export class BankService {
     await this.journalService.create(
       {
         ref: `BANK-OPEN-${instance.code}`,
-        date: new Date(),
+        date: instance.openingDate,
         description: `Opening balance for bank ${instance.name}`,
         details: [
           {

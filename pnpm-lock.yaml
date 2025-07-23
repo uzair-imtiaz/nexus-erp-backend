@@ -50,6 +50,9 @@ importers:
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
+      dayjs:
+        specifier: ^1.11.13
+        version: 1.11.13
       dotenv:
         specifier: ^17.2.0
         version: 17.2.0
