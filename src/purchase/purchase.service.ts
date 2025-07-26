@@ -19,6 +19,7 @@ import { QueryRunner, Repository } from 'typeorm';
 import { CreatePurchaseDto, InventoryDto } from './dto/create-purchase.dto';
 import { PurchaseInventory } from './entity/purchase-inventory.entity';
 import { Purchase } from './entity/purchase.entity';
+import { Account } from 'src/account/entity/account.entity';
 
 @Injectable()
 export class PurchaseService {
@@ -163,26 +164,26 @@ export class PurchaseService {
       queryRunner,
     );
 
-    const account = await this.redisService.getHash<Vendor>(
+    let account = await this.redisService.getHash<Account>(
       `accountByEntity:${tenantId}:${EntityType.VENDOR}:${id}:regular`,
     );
 
     if (!account) {
-      throw new NotFoundException('Vendor account not found');
+      const accounts = await this.accountService.findByEntityIdAndType(
+        id,
+        EntityType.VENDOR,
+      );
+      if (!accounts?.length) {
+        throw new NotFoundException(
+          `Accounts not found for vendor with ID ${id}`,
+        );
+      }
+      account = accounts.find((a) => a.code.endsWith('-dr'))!;
+      await this.redisService.setHash(
+        `accountByEntity:${tenantId}:${EntityType.VENDOR}:${id}:regular`,
+        account,
+      );
     }
-
-    // accountUpdates.push(
-    //   this.accountService.update(
-    //     account.id,
-    //     {
-    //       ...(type === 'PURCHASE'
-    //         ? { creditAmount: amount }
-    //         : { debitAmount: amount }),
-    //     },
-    //     queryRunner,
-    //     true,
-    //   ),
-    // );
     journalDetails.push({
       nominalAccountId: account.id,
       credit: type === 'PURCHASE' ? amount : 0,
@@ -202,12 +203,25 @@ export class PurchaseService {
     const quantityChange = type === 'PURCHASE' ? item.quantity : -item.quantity;
     const amountChange = type === 'PURCHASE' ? amount : -amount;
 
-    const invAccount = await this.redisService.getHash<Inventory>(
+    let invAccount = await this.redisService.getHash<Account>(
       `accountByEntity:${tenantId}:${EntityType.INVENTORY}:${item.id}:regular`,
     );
 
     if (!invAccount) {
-      throw new NotFoundException('Inventory account not found');
+      const accounts = await this.accountService.findByEntityIdAndType(
+        item.id,
+        EntityType.INVENTORY,
+      );
+      if (!accounts?.length) {
+        throw new NotFoundException(
+          `Accounts not found for inventory with ID ${item.id}`,
+        );
+      }
+      invAccount = accounts.find((a) => a.code.endsWith('-dr'))!;
+      await this.redisService.setHash(
+        `accountByEntity:${tenantId}:${EntityType.INVENTORY}:${item.id}:regular`,
+        invAccount,
+      );
     }
 
     const inventory = await this.inventoryService.findOne(item.id);
@@ -230,39 +244,13 @@ export class PurchaseService {
       queryRunner,
       false,
     );
-    // accountUpdates.push(
-    //   this.accountService.update(
-    //     invAccount.id,
-    //     {
-    //       ...(type === 'PURCHASE'
-    //         ? { debitAmount: amount }
-    //         : { creditAmount: amount }),
-    //     },
-    //     queryRunner,
-    //     true,
-    //   ),
-    // );
+
     journalDetails.push({
       nominalAccountId: invAccount.id,
       debit: type === 'PURCHASE' ? amount : 0,
       credit: type === 'RETURN' ? amount : 0,
       description: `Inventory ${type} - Item ID: ${item.id}, Amount: ${amount}`,
     });
-
-    // await Promise.all([
-    //   this.inventoryService.incrementBalance(
-    //     item.id,
-    //     quantityChange,
-    //     'quantity',
-    //     queryRunner,
-    //   ),
-    //   this.inventoryService.incrementBalance(
-    //     item.id,
-    //     amountChange,
-    //     'amount',
-    //     queryRunner,
-    //   ),
-    // ]);
   }
 
   private async addTaxAndDiscountTransactions(
@@ -282,18 +270,7 @@ export class PurchaseService {
       if (!account) {
         throw new NotFoundException('General Sales Tax account not found');
       }
-      // accountUpdates.push(
-      //   this.accountService.update(
-      //     account.id,
-      //     {
-      //       ...(type === 'PURCHASE'
-      //         ? { debitAmount: totalTax }
-      //         : { creditAmount: totalTax }),
-      //     },
-      //     queryRunner,
-      //     true,
-      //   ),
-      // );
+
       journalDetails.push({
         nominalAccountId: account.id,
         debit: type === 'PURCHASE' ? totalTax : 0,
@@ -310,18 +287,7 @@ export class PurchaseService {
       if (!account) {
         throw new NotFoundException('Discount on Purchase account not found');
       }
-      // accountUpdates.push(
-      //   this.accountService.update(
-      //     account.id,
-      //     {
-      //       ...(type === 'PURCHASE'
-      //         ? { creditAmount: totalDiscount }
-      //         : { debitAmount: totalDiscount }),
-      //     },
-      //     queryRunner,
-      //     true,
-      //   ),
-      // );
+
       journalDetails.push({
         nominalAccountId: account.id,
         credit: type === 'PURCHASE' ? totalDiscount : 0,

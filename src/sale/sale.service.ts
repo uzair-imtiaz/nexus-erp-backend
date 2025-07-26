@@ -20,6 +20,7 @@ import {
   JournalDetailDto,
 } from 'src/journal/dto/create-journal.dto';
 import { JournalService } from 'src/journal/journal.service';
+import { Account } from 'src/account/entity/account.entity';
 
 @Injectable()
 export class SaleService {
@@ -140,18 +141,6 @@ export class SaleService {
       );
     }
 
-    // accountUpdates.push(
-    //   this.accountService.update(
-    //     costAccount.id,
-    //     {
-    //       ...(type === 'SALE'
-    //         ? { debitAmount: totalAmount }
-    //         : { creditAmount: totalAmount }),
-    //     },
-    //     queryRunner,
-    //     true,
-    //   ),
-    // );
     journalDetails.push({
       nominalAccountId: costAccount.id,
       debit: type === 'SALE' ? totalAmount : 0,
@@ -219,12 +208,23 @@ export class SaleService {
       'openingBalance',
     );
 
-    const account = await this.redisService.getHash<Customer>(
+    let account = await this.redisService.getHash<Account>(
       `accountByEntity:${tenantId}:${EntityType.CUSTOMER}:${id}:regular`,
     );
 
     if (!account) {
-      throw new NotFoundException('Customer account not found');
+      const accounts = await this.accountService.findByEntityIdAndType(
+        id,
+        EntityType.CUSTOMER,
+      );
+      if (!accounts?.length) {
+        throw new NotFoundException('Customer account not found');
+      }
+      account = accounts.find((a) => a.code.endsWith('-cr'))!;
+      await this.redisService.setHash(
+        `accountByEntity:${tenantId}:${EntityType.CUSTOMER}:${id}:regular`,
+        account,
+      );
     }
 
     journalDetails.push({
@@ -246,26 +246,27 @@ export class SaleService {
     const quantityChange = type === 'SALE' ? -item.quantity : item.quantity;
     const amountChange = type === 'SALE' ? -amount : amount;
 
-    const invAccount = await this.redisService.getHash<Inventory>(
+    let invAccount = await this.redisService.getHash<Account>(
       `accountByEntity:${tenantId}:${EntityType.INVENTORY}:${item.id}:regular`,
     );
 
     if (!invAccount) {
-      throw new NotFoundException('Inventory account not found');
+      const accounts = await this.accountService.findByEntityIdAndType(
+        item.id,
+        EntityType.INVENTORY,
+      );
+      if (!accounts?.length) {
+        throw new NotFoundException(
+          `Accounts not found for inventory with ID ${item.id}`,
+        );
+      }
+      invAccount = accounts.find((a) => a.code.endsWith('-dr'))!;
+      await this.redisService.setHash(
+        `accountByEntity:${tenantId}:${EntityType.INVENTORY}:${item.id}:regular`,
+        invAccount,
+      );
     }
 
-    // accountUpdates.push(
-    //   this.accountService.update(
-    //     invAccount.id,
-    //     {
-    //       ...(type === 'SALE'
-    //         ? { creditAmount: amount }
-    //         : { debitAmount: amount }),
-    //     },
-    //     queryRunner,
-    //     true,
-    //   ),
-    // );
     journalDetails.push({
       nominalAccountId: invAccount.id,
       credit: type === 'SALE' ? amount : 0,
