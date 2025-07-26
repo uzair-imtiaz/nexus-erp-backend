@@ -5,27 +5,26 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { plainToInstance } from 'class-transformer';
+import { getKeyForEntityFromAccountForRedis } from 'src/common/utils';
+import { paginate, Paginated } from 'src/common/utils/paginate';
+import { RedisService } from 'src/redis/redis.service';
+import { Tenant } from 'src/tenant/entity/tenant.entity';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 import {
   Brackets,
   DataSource,
   FindOptionsWhere,
   In,
-  Like,
   QueryRunner,
   Repository,
 } from 'typeorm';
+import { accountColumnNameMap } from './constants/account.constants';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 import { Account } from './entity/account.entity';
 import { AccountTree } from './interfaces/account-tree.interface';
 import { AccountType } from './interfaces/account-type.enum';
-import { accountColumnNameMap } from './constants/account.constants';
-import { plainToInstance } from 'class-transformer';
-import { RedisService } from 'src/redis/redis.service';
-import { getKeyForEntityFromAccountForRedis } from 'src/common/utils';
-import { paginate, Paginated } from 'src/common/utils/paginate';
-import { Tenant } from 'src/tenant/entity/tenant.entity';
 
 @Injectable()
 export class AccountService {
@@ -62,9 +61,6 @@ export class AccountService {
         .andWhere(
           new Brackets((qb) => {
             qb.where('account.tenant = :tenantId', { tenantId });
-            // .orWhere(
-            //   'account.system_generated = true',
-            // );
           }),
         )
         .getOne();
@@ -84,9 +80,6 @@ export class AccountService {
           .andWhere(
             new Brackets((qb) => {
               qb.where('account.tenant = :tenantId', { tenantId });
-              // .orWhere(
-              //   'account.system_generated = true',
-              // );
             }),
           )
           .getOneOrFail();
@@ -126,27 +119,45 @@ export class AccountService {
     }
   }
 
-  async findByType(
-    type: AccountType,
-    filters: Record<string, any>,
+  async findAccounts(
+    filters: Record<string, any> & {
+      types?: AccountType[];
+      parentName?: string;
+    },
   ): Promise<Paginated<Account>> {
     const tenantId = this.tenantContextService.getTenantId();
-    const queryBuilder = this.accountRepository
-      .createQueryBuilder('account')
-      .where('account.type = :type', { type })
-      .andWhere(
-        new Brackets((qb) => {
-          qb.where('account.tenant = :tenantId', { tenantId });
-          // .orWhere(
-          //   'account.system_generated = true',
-          // );
-        }),
-      );
+    const { page, limit, types, parentName, ...filterFields } = filters;
 
-    const { page, limit } = filters;
+    const queryBuilder = this.accountRepository.createQueryBuilder('account');
+
+    if (types && types.length > 0) {
+      queryBuilder.andWhere('account.type IN (:...types)', { types });
+    }
+
+    if (parentName) {
+      const parent = await this.accountRepository.findOne({
+        where: {
+          name: parentName,
+        },
+      });
+      if (!parent) {
+        throw new NotFoundException(
+          `Top-level account '${parentName}' not found`,
+        );
+      }
+      queryBuilder.andWhere('account.path LIKE :path', {
+        path: `${parent.path}/%`,
+      });
+    }
+
+    queryBuilder.andWhere(
+      new Brackets((qb) => {
+        qb.where('account.tenant = :tenantId', { tenantId });
+      }),
+    );
+
     const ALLOWED_FILTERS = ['name'];
-
-    Object.entries(filters).forEach(([key, value]) => {
+    Object.entries(filterFields).forEach(([key, value]) => {
       if (value && ALLOWED_FILTERS.includes(key)) {
         queryBuilder.andWhere(`account.${key} ILIKE :${key}`, {
           [key]: `%${value}%`,

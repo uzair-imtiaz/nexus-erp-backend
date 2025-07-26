@@ -78,7 +78,8 @@ export class AuthController {
       const cookieOptions = {
         secure: true,
         sameSite: 'none' as const,
-        domain: '.mintsbook.com',
+        domain:
+          process.env.NODE_ENV === 'production' ? '.mintsbook.com' : undefined,
         path: '/',
       };
 

@@ -39,13 +39,12 @@ export class AccountController {
     return await this.AccountService.findAll();
   }
 
-  @Get(':type')
+  @Get(':non-hierarchical')
   @ResponseMetadata({ success: true, message: 'Accounts fetched successfully' })
-  async findByType(
-    @Param('type') type: AccountType,
+  async findByTypes(
     @Query() filters: AccountFilterDto,
   ): Promise<Paginated<Account>> {
-    return await this.AccountService.findByType(type, filters);
+    return await this.AccountService.findAccounts(filters);
   }
 
   @Get(':parentName/:type')
