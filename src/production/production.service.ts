@@ -95,14 +95,6 @@ export class ProductionService {
           await this.redisService.setHash(key, inventoryAccount);
         }
 
-        // Credit account
-        // creditPromises.push(
-        //   this.accountService.credit(
-        //     String(inventoryAccount.id),
-        //     ingredient.amount,
-        //     queryRunner,
-        //   ),
-        // );
         journalDetails.push({
           nominalAccountId: String(inventoryAccount.id),
           debit: 0,
@@ -234,14 +226,6 @@ export class ProductionService {
         ),
       );
 
-      //   accountPromises.push(
-      //     this.accountService.debit(
-      //       String(inventoryAccount.id),
-      //       amount,
-      //       queryRunner,
-      //     ),
-      //   );
-      // }
       journalDetails.push({
         nominalAccountId: String(inventoryAccount.id),
         debit: amount,
@@ -257,13 +241,7 @@ export class ProductionService {
       if (!wipAccount) {
         throw new NotFoundException('Work In Progress account not found');
       }
-      // accountPromises.push(
-      //   this.accountService.credit(
-      //     wipAccount.id,
-      //     totalProductAmount,
-      //     queryRunner,
-      //   ),
-      // );
+
       journalDetails.push({
         nominalAccountId: wipAccount.id,
         debit: 0,
@@ -271,18 +249,9 @@ export class ProductionService {
         description: 'Production',
       });
     }
-    // const accountPromises: Promise<any>[] = [];
-    // const accountPromises: Promise<any>[] = [];
 
     for (const expense of formulation.expenses) {
       const amount = Number(expense.amount);
-      // accountPromises.push(
-      //   this.accountService.credit(
-      //     String(expense.expense_account_id),
-      //     amount,
-      //     queryRunner,
-      //   ),
-      // );
 
       journalDetails.push({
         nominalAccountId: String(expense.expense_account_id),

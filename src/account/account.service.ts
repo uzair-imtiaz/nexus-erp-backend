@@ -171,7 +171,7 @@ export class AccountService {
 
   async findOne<T extends keyof Account>(
     where: FindOptionsWhere<Account>,
-    select: T[],
+    select?: T[],
   ): Promise<Pick<Account, T> | null> {
     const tenantId = this.tenantContextService.getTenantId();
     return this.accountRepository.findOne({
@@ -225,9 +225,15 @@ export class AccountService {
     }
 
     try {
-      const account = await this.redisService.getHash<Account>(`account:${id}`);
+      let account = await this.redisService.getHash<Account>(`account:${id}`);
 
-      if (!account) throw new NotFoundException(`Account:${id} not found`);
+      if (!account) {
+        account = await this.findOne({ id });
+        if (!account) {
+          throw new NotFoundException(`Account:${id} not found`);
+        }
+        await this.redisService.setHash(`account:${id}`, account);
+      }
 
       // Parse old credit and debit amounts, defaulting to 0 if undefined
       const oldCredit = Number(account.creditAmount ?? 0);
