@@ -61,9 +61,6 @@ export class AccountService {
         .andWhere(
           new Brackets((qb) => {
             qb.where('account.tenant = :tenantId', { tenantId });
-            // .orWhere(
-            //   'account.system_generated = true',
-            // );
           }),
         )
         .getOne();
@@ -83,9 +80,6 @@ export class AccountService {
           .andWhere(
             new Brackets((qb) => {
               qb.where('account.tenant = :tenantId', { tenantId });
-              // .orWhere(
-              //   'account.system_generated = true',
-              // );
             }),
           )
           .getOneOrFail();
@@ -125,27 +119,45 @@ export class AccountService {
     }
   }
 
-  async findByType(
-    type: AccountType,
-    filters: Record<string, any>,
+  async findAccounts(
+    filters: Record<string, any> & {
+      types?: AccountType[];
+      parentName?: string;
+    },
   ): Promise<Paginated<Account>> {
     const tenantId = this.tenantContextService.getTenantId();
-    const queryBuilder = this.accountRepository
-      .createQueryBuilder('account')
-      .where('account.type = :type', { type })
-      .andWhere(
-        new Brackets((qb) => {
-          qb.where('account.tenant = :tenantId', { tenantId });
-          // .orWhere(
-          //   'account.system_generated = true',
-          // );
-        }),
-      );
+    const { page, limit, types, parentName, ...filterFields } = filters;
 
-    const { page, limit } = filters;
+    const queryBuilder = this.accountRepository.createQueryBuilder('account');
+
+    if (types && types.length > 0) {
+      queryBuilder.andWhere('account.type IN (:...types)', { types });
+    }
+
+    if (parentName) {
+      const parent = await this.accountRepository.findOne({
+        where: {
+          name: parentName,
+        },
+      });
+      if (!parent) {
+        throw new NotFoundException(
+          `Top-level account '${parentName}' not found`,
+        );
+      }
+      queryBuilder.andWhere('account.path LIKE :path', {
+        path: `${parent.path}/%`,
+      });
+    }
+
+    queryBuilder.andWhere(
+      new Brackets((qb) => {
+        qb.where('account.tenant = :tenantId', { tenantId });
+      }),
+    );
+
     const ALLOWED_FILTERS = ['name'];
-
-    Object.entries(filters).forEach(([key, value]) => {
+    Object.entries(filterFields).forEach(([key, value]) => {
       if (value && ALLOWED_FILTERS.includes(key)) {
         queryBuilder.andWhere(`account.${key} ILIKE :${key}`, {
           [key]: `%${value}%`,
