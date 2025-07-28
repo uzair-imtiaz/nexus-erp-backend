@@ -30,7 +30,7 @@ export class JournalDetailDto {
 
 export class CreateJournalDto {
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   ref?: string;
 
   @IsDate()
