@@ -8,8 +8,10 @@ import {
   UpdateDateColumn,
   OneToMany,
   JoinColumn,
+  OneToOne,
 } from 'typeorm';
 import { ExpenseDetail } from './expense-detail.entity';
+import { Journal } from 'src/journal/entity/journal.entity';
 
 @Entity()
 export class Expense extends BaseEntity {
@@ -19,6 +21,10 @@ export class Expense extends BaseEntity {
 
   @OneToMany(() => ExpenseDetail, (detail) => detail.expense)
   details: ExpenseDetail[];
+
+  @OneToOne(() => Journal)
+  @JoinColumn({ name: 'journal_id' })
+  journal: Journal;
 
   @Column({
     type: 'decimal',

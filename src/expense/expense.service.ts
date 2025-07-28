@@ -13,14 +13,17 @@ import { plainToInstance } from 'class-transformer';
 import { BankService } from 'src/bank/bank.service';
 import { AccountService } from 'src/account/account.service';
 import { ExpenseDetail } from './entity/expense-detail.entity';
-import { UpdateBankDto } from 'src/bank/dto/update-bank.dto';
-import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
-import { Account } from 'src/account/entity/account.entity';
+
 import { updateExpenseDto } from './dto/update-expense.dto';
 import { Bank } from 'src/bank/entity/bank.entity';
 import { EntityServiceManager } from 'src/common/services/entity-service-manager.service';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { AccountManagerService } from 'src/common/services/account-manager.service';
+import { JournalService } from 'src/journal/journal.service';
+import {
+  CreateJournalDto,
+  JournalDetailDto,
+} from 'src/journal/dto/create-journal.dto';
 
 @Injectable()
 export class ExpenseService {
@@ -33,14 +36,14 @@ export class ExpenseService {
     private accountService: AccountService,
     private readonly entityServiceManager: EntityServiceManager,
     private readonly accountManagerService: AccountManagerService,
+    private readonly journalService: JournalService,
   ) {}
 
   async create(createExpenseDto: CreateExpenseDto, queryRunner: QueryRunner) {
     const tenantId = this.tenantContextService.getTenantId()!;
     const bank = await this.bankService.findOne(createExpenseDto.bankId);
-    if (!bank) {
-      throw new NotFoundException('Bank not found');
-    }
+
+    if (!bank) throw new NotFoundException('Bank not found');
 
     const totalAmount = createExpenseDto.details.reduce(
       (sum, detail) => sum + detail.amount,
@@ -56,41 +59,8 @@ export class ExpenseService {
 
     const savedExpense = await queryRunner.manager.save(Expense, expense);
 
-    // Create expense details
-    const details = createExpenseDto.details.map((detail) => {
-      const expenseDetail = this.expenseDetailRepository.create({
-        nominalAccount: { id: detail.nominalAccountId },
-        expense: savedExpense,
-        amount: detail.amount,
-        description: detail.description,
-        tenant: { id: tenantId },
-      });
-      return expenseDetail;
-    });
-
-    await queryRunner.manager.save(ExpenseDetail, details);
-
-    await this.entityServiceManager.incrementEntityBalance(
-      EntityType.BANK,
-      bank.id,
-      bank.currentBalance - totalAmount,
-    );
-
-    const creditBankAccount =
-      await this.accountManagerService.getValidAccountByEntityId(
-        bank.id,
-        EntityType.BANK,
-      );
-
-    const accountUpdateDto: UpdateAccountDto = {
-      creditAmount:
-        Number(creditBankAccount?.creditAmount) + Number(totalAmount),
-    };
-    await this.accountService.update(
-      creditBankAccount?.id,
-      accountUpdateDto,
-      queryRunner,
-    );
+    const details: ExpenseDetail[] = [];
+    const journalDetails: JournalDetailDto[] = [];
 
     for (const detail of createExpenseDto.details) {
       const account = await this.accountManagerService.getValidAccount(
@@ -99,21 +69,55 @@ export class ExpenseService {
         queryRunner,
       );
 
-      const accountUpdateDto: UpdateAccountDto = {
-        debitAmount: Number(account.debitAmount) + Number(detail.amount),
-      };
-      await this.accountService.update(
-        account.id,
-        accountUpdateDto,
-        queryRunner,
+      // Create ExpenseDetail
+      const expenseDetail = this.expenseDetailRepository.create({
+        nominalAccount: { id: detail.nominalAccountId },
+        expense: savedExpense,
+        amount: detail.amount,
+        description: detail.description,
+        tenant: { id: tenantId },
+      });
+
+      details.push(expenseDetail);
+
+      // Create journal debit entry
+      journalDetails.push({
+        nominalAccountId: account.id,
+        debit: detail.amount,
+        credit: 0,
+        description: detail.description || `Expense - ${account.name}`,
+      });
+    }
+
+    await queryRunner.manager.save(ExpenseDetail, details);
+
+    // Bank account journal (credit)
+    const bankAccount =
+      await this.accountManagerService.getValidAccountByEntityId(
+        bank.id,
+        EntityType.BANK,
       );
 
-      await this.entityServiceManager.incrementEntityBalance(
-        account.entityType as EntityType,
-        account.entityId,
-        detail.amount,
-      );
-    }
+    journalDetails.push({
+      nominalAccountId: bankAccount.id,
+      debit: 0,
+      credit: totalAmount,
+      description: `Expense payment - ${savedExpense.description || savedExpense.id}`,
+    });
+
+    // Create journal
+    const journalDto: CreateJournalDto = {
+      details: journalDetails,
+      ref: `EXP-${savedExpense.id}`,
+      date: new Date(),
+      description: `Expense transaction - ${savedExpense.description || savedExpense.id}`,
+    };
+
+    const journal = await this.journalService.create(journalDto, queryRunner);
+
+    // Link journal to expense
+    savedExpense.journal = journal;
+    await queryRunner.manager.save(Expense, savedExpense);
 
     return plainToInstance(Expense, savedExpense);
   }
@@ -202,36 +206,54 @@ export class ExpenseService {
       0,
     );
 
+    // Create reversal journal entry for the old expense
+    const reversalJournalDetails: JournalDetailDto[] = [];
+
+    // Reverse bank account (credit the bank back)
+    const oldBankAccount =
+      await this.accountManagerService.getValidAccountByEntityId(
+        existingExpense.bank.id,
+        EntityType.BANK,
+      );
+
+    reversalJournalDetails.push({
+      nominalAccountId: oldBankAccount.id,
+      debit: existingExpense.totalAmount,
+      credit: 0,
+      description: `Expense reversal - ${existingExpense.description || existingExpense.id}`,
+    });
+
+    // Reverse each expense account (credit the expense accounts back)
+    for (const detail of existingExpense.details) {
+      const account = await this.accountManagerService.getValidAccount(
+        detail.nominalAccount.id,
+        tenantId,
+        queryRunner,
+      );
+
+      reversalJournalDetails.push({
+        nominalAccountId: account.id,
+        debit: 0,
+        credit: detail.amount,
+        description: `Expense reversal - ${detail.description || account.name}`,
+      });
+    }
+
+    // Create reversal journal entry
+    const reversalJournalDto: CreateJournalDto = {
+      details: reversalJournalDetails,
+      ref: `EXP-REV-${existingExpense.id}`,
+      date: new Date(),
+      description: `Expense reversal - ${existingExpense.description || existingExpense.id}`,
+    };
+
+    await this.journalService.create(reversalJournalDto, queryRunner);
+
+    // Update expense details
     const isBankChanged =
       data.bankId && data.bankId !== String(existingExpense.bank.id);
 
     if (isBankChanged) {
-      // 1. Reverse old bank balance
-      await this.entityServiceManager.incrementEntityBalance(
-        EntityType.BANK,
-        existingExpense?.bank?.id,
-        Number(existingExpense?.bank?.currentBalance) +
-          Number(existingExpense?.totalAmount),
-      );
-
-      let creditBankAccount =
-        await this.accountManagerService.getValidAccountByEntityId(
-          existingExpense?.bank?.id,
-          EntityType.BANK,
-        );
-
-      const accountUpdateDto: UpdateAccountDto = {
-        creditAmount:
-          Number(existingExpense?.bank?.currentBalance) -
-          Number(existingExpense?.totalAmount),
-      };
-      await this.accountService.update(
-        creditBankAccount.id,
-        accountUpdateDto,
-        queryRunner,
-      );
-
-      // 2. Debit new bank with new total
       const newBank = await queryRunner.manager.findOne(Bank, {
         where: { id: data.bankId, tenant: { id: tenantId } },
       });
@@ -240,43 +262,7 @@ export class ExpenseService {
         throw new NotFoundException(`Bank with ID ${data.bankId} not found`);
       }
 
-      await this.entityServiceManager.incrementEntityBalance(
-        EntityType.BANK,
-        newBank.id,
-        Number(newBank.currentBalance) - Number(newTotalAmount),
-      );
-
-      creditBankAccount =
-        await this.accountManagerService.getValidAccountByEntityId(
-          newBank.id,
-          EntityType.BANK,
-        );
-
-      const newAccountUpdateDto: UpdateAccountDto = {
-        creditAmount: Number(newBank.currentBalance) + Number(newTotalAmount),
-      };
-      await this.accountService.update(
-        creditBankAccount.id,
-        newAccountUpdateDto,
-        queryRunner,
-      );
-
-      // Attach new bank to expense
       existingExpense.bank = newBank;
-    } else {
-      // If bank is same, update by delta
-      const totalDiff =
-        Number(newTotalAmount) - Number(existingExpense.totalAmount);
-      if (totalDiff !== 0) {
-        const bankUpdateDto: UpdateBankDto = {
-          currentBalance: existingExpense.bank.currentBalance - totalDiff,
-        };
-        await this.bankService.update(
-          existingExpense.bank.id,
-          bankUpdateDto,
-          queryRunner,
-        );
-      }
     }
 
     // Map for existing details
@@ -294,27 +280,6 @@ export class ExpenseService {
       );
 
       if (isRemoved) {
-        const account = await this.accountManagerService.getValidAccount(
-          oldDetail.nominalAccount.id,
-          tenantId,
-          queryRunner,
-        );
-
-        const accountUpdateDto: UpdateAccountDto = {
-          debitAmount: Number(account?.debitAmount) - Number(oldDetail?.amount),
-        };
-        await this.accountService.update(
-          account.id,
-          accountUpdateDto,
-          queryRunner,
-        );
-
-        await this.entityServiceManager.incrementEntityBalance(
-          account.entityType as EntityType,
-          account.entityId,
-          -oldDetail.amount,
-        );
-
         await queryRunner.manager.remove(oldDetail);
       }
     }
@@ -322,52 +287,82 @@ export class ExpenseService {
     // Add new / update existing details
     for (const newDetail of data.details) {
       const oldDetail = existingDetailsMap.get(newDetail.nominalAccountId);
-      const diff = Number(newDetail.amount) - Number(oldDetail?.amount ?? 0);
 
-      if (diff !== 0) {
+      // Update existing detail
+      if (oldDetail) {
+        oldDetail.amount = newDetail.amount;
+        if (newDetail.description)
+          oldDetail.description = newDetail.description;
+        await queryRunner.manager.save(oldDetail);
+      } else {
+        // Create new detail
         const account = await this.accountManagerService.getValidAccount(
           newDetail.nominalAccountId,
           tenantId,
           queryRunner,
         );
 
-        const accountUpdateDto: UpdateAccountDto = {
-          debitAmount: Number(account.debitAmount) + Number(diff),
-        };
-        await this.accountService.update(
-          account.id,
-          accountUpdateDto,
-          queryRunner,
-        );
-
-        await this.entityServiceManager.incrementEntityBalance(
-          account.entityType as EntityType,
-          account.entityId,
-          Number(diff),
-        );
-
-        // Update existing detail
-        if (oldDetail) {
-          oldDetail.amount = newDetail.amount;
-          if (newDetail.description)
-            oldDetail.description = newDetail.description;
-          await queryRunner.manager.save(oldDetail);
-        } else {
-          // Create new detail
-          const expenseDetail = queryRunner.manager.create(ExpenseDetail, {
-            amount: newDetail.amount,
-            description: newDetail.description,
-            nominalAccount: account,
-            expense: existingExpense,
-            tenant: { id: tenantId },
-          });
-          await queryRunner.manager.save(expenseDetail);
-        }
+        const expenseDetail = queryRunner.manager.create(ExpenseDetail, {
+          amount: newDetail.amount,
+          description: newDetail.description,
+          nominalAccount: account,
+          expense: existingExpense,
+          tenant: { id: tenantId },
+        });
+        await queryRunner.manager.save(expenseDetail);
       }
     }
 
+    // Create new journal entries for the updated expense
+    const newJournalDetails: JournalDetailDto[] = [];
+
+    // Debit bank account (cash/bank going out)
+    const bankAccount =
+      await this.accountManagerService.getValidAccountByEntityId(
+        existingExpense.bank.id,
+        EntityType.BANK,
+      );
+
+    newJournalDetails.push({
+      nominalAccountId: bankAccount.id,
+      debit: 0,
+      credit: newTotalAmount,
+      description: `Expense payment - ${data.description || existingExpense.id}`,
+    });
+
+    // Credit each expense account (expense accounts being debited)
+    for (const detail of data.details) {
+      const account = await this.accountManagerService.getValidAccount(
+        detail.nominalAccountId,
+        tenantId,
+        queryRunner,
+      );
+
+      newJournalDetails.push({
+        nominalAccountId: account.id,
+        debit: detail.amount,
+        credit: 0,
+        description: detail.description || `Expense - ${account.name}`,
+      });
+    }
+
+    // Create new journal entry
+    const newJournalDto: CreateJournalDto = {
+      details: newJournalDetails,
+      ref: `EXP-${existingExpense.id}`,
+      date: new Date(),
+      description: `Expense transaction - ${data.description || existingExpense.id}`,
+    };
+
+    const newJournal = await this.journalService.create(
+      newJournalDto,
+      queryRunner,
+    );
+
+    // Update expense
     existingExpense.totalAmount = newTotalAmount;
     existingExpense.description = data.description;
+    existingExpense.journal = newJournal;
     await queryRunner.manager.save(Expense, existingExpense);
 
     return plainToInstance(Expense, existingExpense);
@@ -379,26 +374,31 @@ export class ExpenseService {
     // Find existing expense with details
     const existingExpense = await queryRunner.manager.findOne(Expense, {
       where: { id, tenant: { id: tenantId } },
-      relations: ['bank', 'details'],
+      relations: ['bank', 'details', 'journal'],
     });
 
     if (!existingExpense) {
       throw new NotFoundException('Expense not found');
     }
 
-    // Reverse bank balance change
-    const bankUpdateDto: UpdateBankDto = {
-      currentBalance:
-        Number(existingExpense.bank.currentBalance) +
-        Number(existingExpense.totalAmount),
-    };
-    await this.bankService.update(
-      existingExpense.bank.id,
-      bankUpdateDto,
-      queryRunner,
-    );
+    // Create reversal journal entry for the expense
+    const reversalJournalDetails: JournalDetailDto[] = [];
 
-    // Reverse account balance changes
+    // Reverse bank account (credit the bank back)
+    const bankAccount =
+      await this.accountManagerService.getValidAccountByEntityId(
+        existingExpense.bank.id,
+        EntityType.BANK,
+      );
+
+    reversalJournalDetails.push({
+      nominalAccountId: bankAccount.id,
+      debit: existingExpense.totalAmount,
+      credit: 0,
+      description: `Expense deletion reversal - ${existingExpense.description || existingExpense.id}`,
+    });
+
+    // Reverse each expense account (credit the expense accounts back)
     for (const detail of existingExpense.details) {
       const account = await this.accountManagerService.getValidAccount(
         detail.nominalAccount.id,
@@ -406,21 +406,23 @@ export class ExpenseService {
         queryRunner,
       );
 
-      const accountUpdateDto: UpdateAccountDto = {
-        debitAmount: Number(account.debitAmount) - Number(detail.amount),
-      };
-      await this.accountService.update(
-        account.id,
-        accountUpdateDto,
-        queryRunner,
-      );
-
-      await this.entityServiceManager.incrementEntityBalance(
-        account.entityType as EntityType,
-        account.entityId,
-        -Number(detail.amount),
-      );
+      reversalJournalDetails.push({
+        nominalAccountId: account.id,
+        debit: 0,
+        credit: detail.amount,
+        description: `Expense deletion reversal - ${detail.description || account.name}`,
+      });
     }
+
+    // Create reversal journal entry
+    const reversalJournalDto: CreateJournalDto = {
+      details: reversalJournalDetails,
+      ref: `EXP-DEL-${existingExpense.id}`,
+      date: new Date(),
+      description: `Expense deletion reversal - ${existingExpense.description || existingExpense.id}`,
+    };
+
+    await this.journalService.create(reversalJournalDto, queryRunner);
 
     // Delete expense details
     await queryRunner.manager.delete(ExpenseDetail, {
@@ -431,29 +433,5 @@ export class ExpenseService {
     await queryRunner.manager.delete(Expense, { id: existingExpense.id });
 
     return { message: 'Expense deleted successfully' };
-  }
-
-  private async incrementEntityBalanceForAccount(
-    account: Account,
-    amount: number,
-  ) {
-    await this.entityServiceManager.incrementEntityBalance(
-      account.entityType as EntityType,
-      account.entityId,
-      amount,
-    );
-  }
-
-  private async updateAccountBalance(
-    account: Account,
-    amount: number,
-    type: 'debit' | 'credit',
-    queryRunner: QueryRunner,
-  ) {
-    const updateDto: UpdateAccountDto =
-      type === 'debit'
-        ? { debitAmount: Number(account.debitAmount) + amount }
-        : { creditAmount: Number(account.creditAmount) + amount };
-    await this.accountService.update(account.id, updateDto, queryRunner);
   }
 }

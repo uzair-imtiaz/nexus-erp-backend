@@ -249,9 +249,6 @@ export class AccountService {
           .andWhere(
             new Brackets((qb) => {
               qb.where('tenantId = :tenantId', { tenantId });
-              // .orWhere(
-              //   'system_generated = true',
-              // );
             }),
           )
           .execute();
@@ -289,9 +286,6 @@ export class AccountService {
         .andWhere(
           new Brackets((qb) => {
             qb.where('tenantId = :tenantId', { tenantId });
-            // .orWhere(
-            //   'system_generated = true',
-            // );
           }),
         )
         .execute();

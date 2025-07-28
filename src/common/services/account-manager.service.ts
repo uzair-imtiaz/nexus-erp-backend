@@ -37,10 +37,11 @@ export class AccountManagerService {
     const account = await queryRunner.manager.findOne(Account, {
       where: { id: accountId, tenant: { id: tenantId } },
     });
+
     if (!account) {
       throw new NotFoundException(`Account with ID ${accountId} not found`);
     }
-    if (account.code.endsWith('cr')) {
+    if (String(account.code).endsWith('cr')) {
       throw new BadRequestException(
         'General Reserves account cannot be used for expenses',
       );

@@ -8,6 +8,7 @@ import { BankModule } from 'src/bank/bank.module';
 import { AccountModule } from 'src/account/account.module';
 import { ExpenseDetail } from './entity/expense-detail.entity';
 import { CommonModule } from 'src/common/common.module';
+import { JournalModule } from 'src/journal/journal.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { CommonModule } from 'src/common/common.module';
     BankModule,
     AccountModule,
     CommonModule,
+    JournalModule,
   ],
   controllers: [ExpenseController],
   providers: [ExpenseService],

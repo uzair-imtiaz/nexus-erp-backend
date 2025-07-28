@@ -6,7 +6,7 @@ export const getKeyForEntityFromAccountForRedis = (
   tenantId: string,
 ) => {
   const key = `accountByEntity:${tenantId}:${account.entityType}:${account.entityId}:${
-    account.code.endsWith('cr') ? 'reserves' : 'regular'
+    String(account.code).endsWith('cr') ? 'reserves' : 'regular'
   }`;
   return key;
 };
