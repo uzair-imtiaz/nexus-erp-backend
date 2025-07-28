@@ -109,7 +109,7 @@ export class ExpenseService {
     const journalDto: CreateJournalDto = {
       details: journalDetails,
       ref: `EXP-${savedExpense.id}`,
-      date: new Date(),
+      date: new Date(), // Need to change. Introduce a date at the root of expense
       description: `Expense transaction - ${savedExpense.description || savedExpense.id}`,
     };
 
@@ -374,7 +374,7 @@ export class ExpenseService {
     // Find existing expense with details
     const existingExpense = await queryRunner.manager.findOne(Expense, {
       where: { id, tenant: { id: tenantId } },
-      relations: ['bank', 'details', 'journal'],
+      relations: ['bank', 'details'],
     });
 
     if (!existingExpense) {
