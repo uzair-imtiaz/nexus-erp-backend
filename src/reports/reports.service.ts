@@ -4,10 +4,15 @@ import { AccountService } from 'src/account/account.service';
 import { Account } from 'src/account/entity/account.entity';
 import { JournalService } from 'src/journal/journal.service';
 import {
+  BalanceSheetAccountDto,
+  BalanceSheetResponseDto,
+} from './dto/balance-sheet.dto';
+import {
   JournalLedgerReportDto,
   JournalLedgerReportResponseDto,
 } from './dto/journal-ledger-report.dto';
 import { TrialBalanceReportDto } from './dto/trial-balance-report.dto';
+import { ACCOUNT_PATH_NAMES } from './constants/reports.constant';
 
 @Injectable()
 export class ReportsService {
@@ -198,5 +203,102 @@ export class ReportsService {
     }
 
     return [...openingRows, ...rows];
+  }
+
+  async getBalanceSheet(asOfDate?: Date): Promise<BalanceSheetResponseDto> {
+    if (!asOfDate) {
+      asOfDate = new Date();
+    }
+    const journals = await this.journalService.findAll({
+      date_to: asOfDate,
+      limit: Number.MAX_SAFE_INTEGER,
+    });
+
+    const accountTotals: Record<
+      string,
+      { account: Account; debit: number; credit: number }
+    > = {};
+
+    for (const journal of journals.data) {
+      for (const detail of journal.details) {
+        const accId = detail.nominalAccount.id;
+
+        if (!accountTotals[accId]) {
+          accountTotals[accId] = {
+            account: detail.nominalAccount,
+            debit: 0,
+            credit: 0,
+          };
+        }
+
+        accountTotals[accId].debit += Number(detail.debit);
+        accountTotals[accId].credit += Number(detail.credit);
+      }
+    }
+
+    const sections: {
+      assets: {
+        current: BalanceSheetAccountDto[];
+        nonCurrent: BalanceSheetAccountDto[];
+      };
+      liabilities: BalanceSheetAccountDto[];
+      equity: BalanceSheetAccountDto[];
+    } = {
+      assets: { current: [], nonCurrent: [] },
+      liabilities: [],
+      equity: [],
+    };
+
+    for (const accId in accountTotals) {
+      const { account, debit, credit } = accountTotals[accId];
+      const balance = debit - credit;
+
+      const entry = {
+        name: account.name,
+        balance,
+      };
+
+      if (account.pathName.includes(ACCOUNT_PATH_NAMES.CURRENT_ASSETS)) {
+        sections.assets.current.push(entry);
+      } else if (
+        account.pathName.includes(ACCOUNT_PATH_NAMES.NON_CURRENT_ASSETS)
+      ) {
+        sections.assets.nonCurrent.push(entry);
+      } else if (account.pathName.startsWith(ACCOUNT_PATH_NAMES.LIABILITIES)) {
+        sections.liabilities.push(entry);
+      } else if (account.pathName.startsWith(ACCOUNT_PATH_NAMES.EQUITY)) {
+        sections.equity.push(entry);
+      }
+    }
+
+    // 4. Totals
+    const sum = (arr: BalanceSheetAccountDto[]): number =>
+      Array.isArray(arr)
+        ? arr.reduce((total, acc) => total + (acc.balance ?? 0), 0)
+        : 0;
+
+    return {
+      asOf: asOfDate,
+      assets: {
+        current: {
+          accounts: sections.assets.current,
+          total: sum(sections.assets.current),
+        },
+        nonCurrent: {
+          accounts: sections.assets.nonCurrent,
+          total: sum(sections.assets.nonCurrent),
+        },
+      },
+      liabilities: {
+        accounts: sections.liabilities,
+        total: sum(sections.liabilities),
+      },
+      equity: {
+        accounts: sections.equity,
+        total: sum(sections.equity),
+      },
+      totalLiabilitiesAndEquity:
+        sum(sections.liabilities) + sum(sections.equity),
+    };
   }
 }
