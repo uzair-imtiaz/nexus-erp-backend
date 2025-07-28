@@ -9,12 +9,23 @@ import {
 } from 'class-validator';
 
 export class AssetSectionDto {
+  @IsArray()
+  @ValidateNested({ each: true })
   accounts: BalanceSheetAccountDto[];
+
+  @IsNumber()
   total: number;
 }
 
 export class AssetsDto {
+  @IsObject()
+  @Type(() => AssetSectionDto)
+  @ValidateNested()
   current: AssetSectionDto;
+
+  @IsObject()
+  @Type(() => AssetSectionDto)
+  @ValidateNested()
   nonCurrent: AssetSectionDto;
 }
 

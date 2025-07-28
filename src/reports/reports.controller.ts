@@ -19,7 +19,7 @@ export class ReportsController {
   }
 
   @Get('balance-sheet')
-  async(@Query('date', new DefaultDatePipe()) asOf: Date) {
+  async getBalanceSheet(@Query('date', new DefaultDatePipe()) asOf: Date) {
     return this.reportsService.getBalanceSheet(asOf);
   }
 }

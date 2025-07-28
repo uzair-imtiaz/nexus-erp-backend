@@ -12,6 +12,7 @@ import {
   JournalLedgerReportResponseDto,
 } from './dto/journal-ledger-report.dto';
 import { TrialBalanceReportDto } from './dto/trial-balance-report.dto';
+import { ACCOUNT_PATH_NAMES } from './constants/reports.constant';
 
 @Injectable()
 export class ReportsService {
@@ -257,13 +258,15 @@ export class ReportsService {
         balance,
       };
 
-      if (account.pathName.includes('Current Assets')) {
+      if (account.pathName.includes(ACCOUNT_PATH_NAMES.CURRENT_ASSETS)) {
         sections.assets.current.push(entry);
-      } else if (account.pathName.includes('Non-Current Assets')) {
+      } else if (
+        account.pathName.includes(ACCOUNT_PATH_NAMES.NON_CURRENT_ASSETS)
+      ) {
         sections.assets.nonCurrent.push(entry);
-      } else if (account.pathName.startsWith('Liabilities')) {
+      } else if (account.pathName.startsWith(ACCOUNT_PATH_NAMES.LIABILITIES)) {
         sections.liabilities.push(entry);
-      } else if (account.pathName.startsWith('Equity')) {
+      } else if (account.pathName.startsWith(ACCOUNT_PATH_NAMES.EQUITY)) {
         sections.equity.push(entry);
       }
     }
