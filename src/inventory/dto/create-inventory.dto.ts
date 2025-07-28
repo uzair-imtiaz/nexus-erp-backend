@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsPositive,
   IsString,
+  Min,
 } from 'class-validator';
 import { IsStringNumberMap } from 'src/common/validators/is-string-number-map.validator';
 
@@ -20,7 +21,7 @@ export class CreateInventoryDto {
 
   @IsNotEmpty()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   quantity: number;
 
   @IsNotEmpty()

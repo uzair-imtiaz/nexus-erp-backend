@@ -5,7 +5,6 @@ import {
   IsDate,
   IsNumber,
   IsOptional,
-  IsPositive,
   IsString,
   Min,
 } from 'class-validator';
@@ -64,7 +63,6 @@ export class JournalLedgerReportResponseDto {
 
   @IsNumber()
   @Min(0)
-  @IsPositive()
   credit: number;
 
   @IsNumber()

@@ -6,8 +6,8 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
-  IsPositive,
   IsString,
+  Min,
   ValidateNested,
 } from 'class-validator';
 
@@ -16,15 +16,15 @@ export class InventoryDto {
   id: string;
 
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   quantity: number;
 
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   rate: number;
 
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @IsOptional()
   discount?: number;
 
@@ -33,7 +33,7 @@ export class InventoryDto {
   unit: string;
 
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @IsOptional()
   tax?: number;
 }

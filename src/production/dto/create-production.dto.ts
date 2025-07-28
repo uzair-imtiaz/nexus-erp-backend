@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsPositive,
   IsString,
+  Min,
 } from 'class-validator';
 
 export class CreateProductionDto {
@@ -12,7 +13,7 @@ export class CreateProductionDto {
   code: string;
 
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   quantity: number;
 
   @IsDate()
