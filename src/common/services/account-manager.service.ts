@@ -25,9 +25,7 @@ export class AccountManagerService {
         `Account for ${entityType} with ID ${entityId} not found`,
       );
     }
-    const validAccount = account.find(
-      (ba) => !ba.pathName.includes('General Reserves'),
-    )!;
+    const validAccount = account.find((ba) => !ba.code.endsWith('cr'))!;
     return validAccount;
   }
 
@@ -42,7 +40,7 @@ export class AccountManagerService {
     if (!account) {
       throw new NotFoundException(`Account with ID ${accountId} not found`);
     }
-    if (account.pathName.includes('General Reserves')) {
+    if (account.code.endsWith('cr')) {
       throw new BadRequestException(
         'General Reserves account cannot be used for expenses',
       );
