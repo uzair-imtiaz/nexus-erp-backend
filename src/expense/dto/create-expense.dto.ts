@@ -29,9 +29,6 @@ export class ExpenseDetailDto {
 export class CreateExpenseDto {
   @IsNotEmpty()
   @IsString()
-  @Transform(({ value }) =>
-    value !== null && value !== undefined ? String(value) : value,
-  )
   bankId: string;
 
   @IsArray()

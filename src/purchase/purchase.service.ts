@@ -2,9 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { AccountService } from 'src/account/account.service';
+import { Account } from 'src/account/entity/account.entity';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { paginate, Paginated } from 'src/common/utils/paginate';
-import { Inventory } from 'src/inventory/entity/inventory.entity';
 import { InventoryService } from 'src/inventory/inventory.service';
 import {
   CreateJournalDto,
@@ -13,13 +13,11 @@ import {
 import { JournalService } from 'src/journal/journal.service';
 import { RedisService } from 'src/redis/redis.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
-import { Vendor } from 'src/vendor/entity/vendor.entity';
 import { VendorService } from 'src/vendor/vendor.service';
 import { QueryRunner, Repository } from 'typeorm';
 import { CreatePurchaseDto, InventoryDto } from './dto/create-purchase.dto';
 import { PurchaseInventory } from './entity/purchase-inventory.entity';
 import { Purchase } from './entity/purchase.entity';
-import { Account } from 'src/account/entity/account.entity';
 
 @Injectable()
 export class PurchaseService {
@@ -123,7 +121,7 @@ export class PurchaseService {
 
     // await Promise.all(accountUpdates);
     const createJournalDto: CreateJournalDto = {
-      ref: dto.ref,
+      ref: dto.ref || `Purchase ${savedTransaction.id}`,
       date: dto.date,
       details: journalDetails,
     };
