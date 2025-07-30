@@ -19,6 +19,7 @@ import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { Inventory } from './entity/inventory.entity';
 import { JournalService } from 'src/journal/journal.service';
+import * as dayjs from 'dayjs';
 
 @Injectable()
 export class InventoryService {
@@ -108,7 +109,7 @@ export class InventoryService {
       // Create opening balance journal entry
       await this.journalService.create(
         {
-          ref: `INV-OPEN-${instance.code}`,
+          ref: `INV-OPEN-${instance.code}-${dayjs().format('YYYY-MM-DD')}`,
           date: instance.openingDate,
           description: `Opening balance for inventory ${instance.name}`,
           details: [

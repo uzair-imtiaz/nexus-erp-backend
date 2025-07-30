@@ -116,7 +116,6 @@ export class PurchaseService {
       totalTax,
       totalDiscount,
       type,
-      queryRunner,
     );
 
     // await Promise.all(accountUpdates);
@@ -155,12 +154,12 @@ export class PurchaseService {
     queryRunner: QueryRunner,
   ) {
     const tenantId = this.tenantContextService.getTenantId()!;
-    await this.vendorService.incrementBalance(
-      id,
-      type === 'PURCHASE' ? -amount : amount,
-      'openingBalance',
-      queryRunner,
-    );
+    // await this.vendorService.incrementBalance(
+    //   id,
+    //   type === 'PURCHASE' ? -amount : amount,
+    //   'openingBalance',
+    //   queryRunner,
+    // );
 
     let account = await this.redisService.getHash<Account>(
       `accountByEntity:${tenantId}:${EntityType.VENDOR}:${id}:regular`,
@@ -256,7 +255,6 @@ export class PurchaseService {
     totalTax: number,
     totalDiscount: number,
     type: 'PURCHASE' | 'RETURN',
-    queryRunner: QueryRunner,
   ) {
     if (totalTax) {
       const account = await this.accountService.findOne(
