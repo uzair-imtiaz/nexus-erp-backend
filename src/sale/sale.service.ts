@@ -95,6 +95,7 @@ export class SaleService {
     let totalAmount = 0;
     let totalTax = 0;
     let totalDiscount = 0;
+    let totalCostAmount = 0;
     const inventories: SaleInventory[] = [];
     const journalDetails: JournalDetailDto[] = [];
 
@@ -114,14 +115,16 @@ export class SaleService {
     const savedTransaction = await queryRunner.manager.save(saleToSave);
 
     for (const item of dto.items) {
-      const { amount, tax, discount } = this.calculateItemTotals(item);
+      const { costAmount, amount, tax, discount } =
+        this.calculateItemTotals(item);
       totalAmount += amount;
       totalTax += tax;
       totalDiscount += discount;
+      totalCostAmount += costAmount;
 
       await this.handleInventoryUpdate(
         item,
-        amount,
+        costAmount,
         type,
         journalDetails,
         queryRunner,
@@ -143,8 +146,8 @@ export class SaleService {
 
     journalDetails.push({
       nominalAccountId: costAccount.id,
-      debit: type === 'SALE' ? totalAmount : 0,
-      credit: type === 'SALE' ? 0 : totalAmount,
+      debit: type === 'SALE' ? totalCostAmount : 0,
+      credit: type === 'SALE' ? 0 : totalCostAmount,
       description: `Sale ${savedTransaction.ref ?? savedTransaction.id}`,
     });
 
@@ -189,6 +192,7 @@ export class SaleService {
 
   private calculateItemTotals(item: InventoryDto) {
     return {
+      costAmount: (item.buyingRate ?? item.rate) * item.quantity,
       amount: item.rate * item.quantity,
       tax: item.tax ?? 0,
       discount: item.discount ?? 0,

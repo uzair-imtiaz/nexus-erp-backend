@@ -81,7 +81,9 @@ export class JournalService {
         await this.entityServiceManager.incrementEntityBalance(
           account.entityType as EntityType,
           account.entityId,
-          debit - credit,
+          account.entityType === EntityType.VENDOR
+            ? credit - debit
+            : debit - credit,
           queryRunner,
         );
       }

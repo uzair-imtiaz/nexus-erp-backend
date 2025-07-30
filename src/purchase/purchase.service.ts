@@ -154,12 +154,6 @@ export class PurchaseService {
     queryRunner: QueryRunner,
   ) {
     const tenantId = this.tenantContextService.getTenantId()!;
-    // await this.vendorService.incrementBalance(
-    //   id,
-    //   type === 'PURCHASE' ? -amount : amount,
-    //   'openingBalance',
-    //   queryRunner,
-    // );
 
     let account = await this.redisService.getHash<Account>(
       `accountByEntity:${tenantId}:${EntityType.VENDOR}:${id}:regular`,
@@ -234,9 +228,7 @@ export class PurchaseService {
       {
         quantity: newQuantity,
         amount: newAmount,
-        baseRate:
-          (inventory.quantity * inventory.baseRate + newQuantity * item.rate) /
-          (inventory.quantity + newQuantity),
+        baseRate: newAmount / newQuantity,
       },
       queryRunner,
       false,
