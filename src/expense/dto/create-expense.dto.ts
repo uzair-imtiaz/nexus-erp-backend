@@ -6,6 +6,7 @@ import {
   IsString,
   ValidateNested,
   ArrayMinSize,
+  IsDate,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
@@ -40,4 +41,8 @@ export class CreateExpenseDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsDate()
+  @IsOptional()
+  date?: Date;
 }
