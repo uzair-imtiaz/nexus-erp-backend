@@ -22,10 +22,10 @@ export class JournalFilterDto {
   @Min(1)
   limit?: number = 20;
 
-  @IsNumber()
-  @Type(() => Number)
+  @IsString()
+  @Type(() => String)
   @IsOptional()
-  ref?: number;
+  ref?: string;
 
   @IsOptional()
   @IsString({ each: true })
