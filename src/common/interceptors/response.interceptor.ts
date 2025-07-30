@@ -99,7 +99,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, any> {
           message:
             process.env.NODE_ENV === 'development'
               ? error.message || 'Internal server error'
-              : 'Internal server error',
+              : 'Network Error',
           statusCode: 500,
           ...error,
         }));
