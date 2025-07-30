@@ -34,6 +34,9 @@ export class Expense extends BaseEntity {
   })
   totalAmount: number;
 
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  date: Date;
+
   @Column({ type: 'text', nullable: true })
   description?: string;
 

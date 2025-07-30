@@ -109,7 +109,7 @@ export class ExpenseService {
     const journalDto: CreateJournalDto = {
       details: journalDetails,
       ref: `EXP-${savedExpense.id}`,
-      date: new Date(), // Need to change. Introduce a date at the root of expense
+      date: createExpenseDto.date || new Date(),
       description: `Expense transaction - ${savedExpense.description || savedExpense.id}`,
     };
 

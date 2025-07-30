@@ -175,7 +175,7 @@ export class PurchaseService {
           `Accounts not found for vendor with ID ${id}`,
         );
       }
-      account = accounts.find((a) => a.code.endsWith('-dr'))!;
+      account = accounts.find((a) => a.code.endsWith('-cr'))!;
       await this.redisService.setHash(
         `accountByEntity:${tenantId}:${EntityType.VENDOR}:${id}:regular`,
         account,
