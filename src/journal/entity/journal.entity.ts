@@ -10,7 +10,7 @@ import { JournalDetail } from './journal-detail.entity';
 
 @Entity()
 export class Journal extends BaseEntity {
-  @Column({ unique: true, nullable: true })
+  @Column({ nullable: true })
   ref: string;
 
   @Column({ type: 'timestamp with time zone' })
