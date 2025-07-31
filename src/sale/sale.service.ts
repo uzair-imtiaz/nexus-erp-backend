@@ -61,7 +61,7 @@ export class SaleService {
       'Cost of Sales',
       'Sales of Product Income',
       'General Sales Tax',
-      'Discount Received',
+      'Discount on Invoice',
     ];
     const accounts = await Promise.all(
       accountNames.map(

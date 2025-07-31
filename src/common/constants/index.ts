@@ -4,3 +4,7 @@ export const ACCOUNT_PATH_NAMES = {
   LIABILITIES: 'Liabilities',
   EQUITY: 'Equity',
 };
+
+export const ACCOUNT_NAMES = {
+  PRODUCT_SALE_INCOME: 'Sales of Product Income',
+};
