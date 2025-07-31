@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { AccountService } from 'src/account/account.service';
@@ -223,6 +227,9 @@ export class PurchaseService {
     const newQuantity = inventory.quantity + quantityChange;
     const newAmount = inventory.amount + amountChange;
 
+    if (newQuantity === 0) {
+      throw new BadRequestException('Inventory quantity cannot be zero');
+    }
     await this.inventoryService.update(
       item.id,
       {

@@ -24,6 +24,7 @@ export class Inventory extends BaseEntity {
   @Column({
     name: 'base_rate',
     type: 'decimal',
+    precision: 8,
     scale: 2,
     nullable: true,
     transformer: {
@@ -37,6 +38,7 @@ export class Inventory extends BaseEntity {
     name: 'selling_rate',
     nullable: true,
     type: 'decimal',
+    precision: 8,
     scale: 2,
     transformer: {
       to: (value: number) => value,

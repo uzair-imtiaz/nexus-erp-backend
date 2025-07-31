@@ -25,6 +25,7 @@ export class InventoryDto {
 
   @IsNumber()
   @IsOptional()
+  @Min(0)
   buyingRate?: number;
 
   @IsNumber()
