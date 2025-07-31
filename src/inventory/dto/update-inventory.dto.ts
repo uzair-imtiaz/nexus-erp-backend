@@ -1,10 +1,10 @@
 import { PartialType } from '@nestjs/mapped-types';
+import { IsNumber, IsOptional, Min } from 'class-validator';
 import { CreateInventoryDto } from './create-inventory.dto';
-import { IsNumber, IsOptional, IsPositive } from 'class-validator';
 
 export class UpdateInventoryDto extends PartialType(CreateInventoryDto) {
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @IsOptional()
   amount?: number;
 }

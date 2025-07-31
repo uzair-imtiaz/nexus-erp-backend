@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { AccountService } from 'src/account/account.service';
@@ -154,12 +158,6 @@ export class PurchaseService {
     queryRunner: QueryRunner,
   ) {
     const tenantId = this.tenantContextService.getTenantId()!;
-    // await this.vendorService.incrementBalance(
-    //   id,
-    //   type === 'PURCHASE' ? -amount : amount,
-    //   'openingBalance',
-    //   queryRunner,
-    // );
 
     let account = await this.redisService.getHash<Account>(
       `accountByEntity:${tenantId}:${EntityType.VENDOR}:${id}:regular`,
@@ -229,14 +227,15 @@ export class PurchaseService {
     const newQuantity = inventory.quantity + quantityChange;
     const newAmount = inventory.amount + amountChange;
 
+    if (newQuantity === 0) {
+      throw new BadRequestException('Inventory quantity cannot be zero');
+    }
     await this.inventoryService.update(
       item.id,
       {
         quantity: newQuantity,
         amount: newAmount,
-        baseRate:
-          (inventory.quantity * inventory.baseRate + newQuantity * item.rate) /
-          (inventory.quantity + newQuantity),
+        baseRate: newAmount / newQuantity,
       },
       queryRunner,
       false,

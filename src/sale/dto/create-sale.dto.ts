@@ -24,6 +24,11 @@ export class InventoryDto {
   rate: number;
 
   @IsNumber()
+  @IsOptional()
+  @Min(0)
+  buyingRate?: number;
+
+  @IsNumber()
   @Min(0)
   @IsOptional()
   discount?: number;

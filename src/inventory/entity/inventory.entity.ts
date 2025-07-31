@@ -24,8 +24,9 @@ export class Inventory extends BaseEntity {
   @Column({
     name: 'base_rate',
     type: 'decimal',
-    precision: 10,
+    precision: 8,
     scale: 2,
+    nullable: true,
     transformer: {
       to: (value: number) => value,
       from: (value: string) => parseFloat(value),
@@ -33,7 +34,17 @@ export class Inventory extends BaseEntity {
   })
   baseRate: number;
 
-  @Column({ name: 'selling_rate', nullable: true })
+  @Column({
+    name: 'selling_rate',
+    nullable: true,
+    type: 'decimal',
+    precision: 8,
+    scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
   sellingRate: number;
 
   @Column({ nullable: true })

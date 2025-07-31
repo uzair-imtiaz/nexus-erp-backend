@@ -1,11 +1,4 @@
-import {
-  IsDate,
-  IsNotEmpty,
-  IsNumber,
-  IsPositive,
-  IsString,
-  Min,
-} from 'class-validator';
+import { IsDate, IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
 
 export class CreateProductionDto {
   @IsString()
@@ -20,7 +13,7 @@ export class CreateProductionDto {
   date: Date;
 
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   totalCost: number;
 
   @IsString()

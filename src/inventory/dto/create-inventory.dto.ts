@@ -26,7 +26,7 @@ export class CreateInventoryDto {
 
   @IsNotEmpty()
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @Type(() => Number)
   baseRate: number;
 
