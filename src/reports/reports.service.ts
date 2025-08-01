@@ -12,7 +12,7 @@ import {
   JournalLedgerReportResponseDto,
 } from './dto/journal-ledger-report.dto';
 import { TrialBalanceReportDto } from './dto/trial-balance-report.dto';
-import { ACCOUNT_PATH_NAMES } from 'src/common/constants';
+import { ACCOUNT_NAMES, ACCOUNT_PATH_NAMES } from 'src/common/constants';
 import {
   ProfitAndLossReportDto,
   ProfitAndLossReportResponseDto,
@@ -263,15 +263,21 @@ export class ReportsService {
     };
 
     // Build each section based on known account name(s)
-    const turnover = buildSection(['Sales of Product Income'], 'Turnover');
+    const turnover = buildSection(
+      [ACCOUNT_NAMES.PRODUCT_SALE_INCOME],
+      'Turnover',
+    );
     const discountAllowed = buildSection(
-      ['Discount Allowed'],
+      [ACCOUNT_NAMES.DISCOUNT_ALLOWED],
       'Discount Allowed',
     );
     turnover.accounts.push(...discountAllowed.accounts);
     turnover.total += discountAllowed.total;
 
-    const costOfSales = buildSection(['Cost of Sales'], 'Cost of Sales');
+    const costOfSales = buildSection(
+      [ACCOUNT_NAMES.COST_OF_SALES],
+      'Cost of Sales',
+    );
     const discountReceived = buildSection(
       ['Discount Received'],
       'Discount Received',
@@ -282,19 +288,18 @@ export class ReportsService {
     const grossProfit = turnover.total + costOfSales.total;
 
     const operatingExpenses = buildSection(
-      ['Operating Expenses'],
+      [ACCOUNT_NAMES.OPERATING_EXPENSES],
       'Operating Expenses',
     );
 
     const operatingProfit = grossProfit + operatingExpenses.total;
 
     const nonOperatingExpenses = buildSection(
-      ['Non-operating Expenses'],
+      [ACCOUNT_NAMES.NON_OPERATING_EXPENSES],
       'Non-Operating Expenses',
     );
 
-    const earningsBeforeTax =
-      operatingProfit - operatingExpenses.total - nonOperatingExpenses.total;
+    const earningsBeforeTax = operatingProfit + nonOperatingExpenses.total;
 
     return {
       turnover,

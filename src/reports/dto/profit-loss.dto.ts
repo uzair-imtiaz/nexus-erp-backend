@@ -14,7 +14,6 @@ export interface ProfitAndLossAccount {
   id: string;
   name: string;
   amount: number;
-  accounts?: ProfitAndLossAccount[];
 }
 
 export interface ProfitAndLossSection {
