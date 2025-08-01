@@ -12,7 +12,12 @@ import {
   JournalLedgerReportResponseDto,
 } from './dto/journal-ledger-report.dto';
 import { TrialBalanceReportDto } from './dto/trial-balance-report.dto';
-import { ACCOUNT_PATH_NAMES } from './constants/reports.constant';
+import { ACCOUNT_NAMES, ACCOUNT_PATH_NAMES } from 'src/common/constants';
+import {
+  ProfitAndLossReportDto,
+  ProfitAndLossReportResponseDto,
+  ProfitAndLossSection,
+} from './dto/profit-loss.dto';
 
 @Injectable()
 export class ReportsService {
@@ -203,6 +208,110 @@ export class ReportsService {
     }
 
     return [...openingRows, ...rows];
+  }
+
+  async getProfitAndLoss(
+    query: ProfitAndLossReportDto,
+  ): Promise<ProfitAndLossReportResponseDto> {
+    // Fetch all journals within the date range
+    const journals = await this.journalService.findAll({
+      ...query,
+      limit: Number.MAX_SAFE_INTEGER,
+    });
+
+    // Flatten all journal details
+    const allDetails = journals.data.flatMap((j) => j.details);
+
+    // Group by nominal account name
+    const grouped: Record<string, { account: Account; amount: number }> = {};
+
+    for (const detail of allDetails) {
+      const name = detail.nominalAccount.name;
+      if (!grouped[name]) {
+        grouped[name] = {
+          account: detail.nominalAccount,
+          amount: 0,
+        };
+      }
+
+      grouped[name].amount +=
+        Number(detail.credit || 0) - Number(detail.debit || 0);
+    }
+
+    const buildSection = (names: string[], label: string) => {
+      const section: ProfitAndLossSection = {
+        name: label,
+        total: 0,
+        accounts: [],
+      };
+
+      for (const name of names) {
+        if (!grouped[name]) continue;
+        const entry = grouped[name];
+        const amount = entry.amount;
+
+        section.accounts.push({
+          id: entry.account.id,
+          name: entry.account.name,
+          amount,
+        });
+
+        section.total += amount;
+      }
+
+      return section;
+    };
+
+    // Build each section based on known account name(s)
+    const turnover = buildSection(
+      [ACCOUNT_NAMES.PRODUCT_SALE_INCOME],
+      'Turnover',
+    );
+    const discountAllowed = buildSection(
+      [ACCOUNT_NAMES.DISCOUNT_ALLOWED],
+      'Discount Allowed',
+    );
+    turnover.accounts.push(...discountAllowed.accounts);
+    turnover.total += discountAllowed.total;
+
+    const costOfSales = buildSection(
+      [ACCOUNT_NAMES.COST_OF_SALES],
+      'Cost of Sales',
+    );
+    const discountReceived = buildSection(
+      ['Discount Received'],
+      'Discount Received',
+    );
+    costOfSales.accounts.push(...discountReceived.accounts);
+    costOfSales.total += discountReceived.total;
+
+    const grossProfit = turnover.total + costOfSales.total;
+
+    const operatingExpenses = buildSection(
+      [ACCOUNT_NAMES.OPERATING_EXPENSES],
+      'Operating Expenses',
+    );
+
+    const operatingProfit = grossProfit + operatingExpenses.total;
+
+    const nonOperatingExpenses = buildSection(
+      [ACCOUNT_NAMES.NON_OPERATING_EXPENSES],
+      'Non-Operating Expenses',
+    );
+
+    const earningsBeforeTax = operatingProfit + nonOperatingExpenses.total;
+
+    return {
+      turnover,
+      costOfSales,
+      grossProfit,
+      operatingProfit,
+      operatingExpenses,
+      nonOperatingExpenses,
+      earningsBeforeTax,
+      dateFrom: query.date_from,
+      dateTo: query.date_to,
+    };
   }
 
   async getBalanceSheet(asOfDate?: Date): Promise<BalanceSheetResponseDto> {
