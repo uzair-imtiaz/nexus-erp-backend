@@ -19,7 +19,7 @@ import { CreateVendorDto } from './dto/create-vendor.dto';
 import { VendorFilterDto } from './dto/vendor-filter.dto';
 import { TenantGuard } from 'src/tenant/guards/tenant.guard';
 import { TransactionInterceptor } from 'src/common/interceptors/transaction.interceptor';
-import { TransactionRequest } from 'src/common/interfaces/TransactionRequest';
+import { TransactionRequest } from 'src/common/interfaces/request.interfaces';
 
 @Controller('vendor')
 @UseGuards(TenantGuard)

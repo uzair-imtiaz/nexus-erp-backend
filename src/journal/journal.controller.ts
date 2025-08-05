@@ -12,7 +12,7 @@ import { JournalService } from './journal.service';
 import { TransactionInterceptor } from 'src/common/interceptors/transaction.interceptor';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
 import { CreateJournalDto } from './dto/create-journal.dto';
-import { TransactionRequest } from 'src/common/interfaces/TransactionRequest';
+import { TransactionRequest } from 'src/common/interfaces/request.interfaces';
 import { JournalFilterDto } from './dto/journal-filter.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 

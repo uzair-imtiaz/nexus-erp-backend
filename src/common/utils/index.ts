@@ -1,5 +1,7 @@
 import { Account } from 'src/account/entity/account.entity';
 import { EntityType } from '../enums/entity-type.enum';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export const getKeyForEntityFromAccountForRedis = (
   account: Account,

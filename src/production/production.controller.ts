@@ -3,7 +3,7 @@ import { ProductionService } from './production.service';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
 import { CreateProductionDto } from './dto/create-production.dto';
 import { ProductionFilterDto } from './dto/production-filter.dto';
-import { TransactionRequest } from 'src/common/interfaces/TransactionRequest';
+import { TransactionRequest } from 'src/common/interfaces/request.interfaces';
 
 @Controller('production')
 export class ProductionController {

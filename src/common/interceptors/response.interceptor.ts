@@ -4,30 +4,9 @@ import {
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
-import { Observable, throwError } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { RESPONSE_METADATA_KEY } from '../decorators/response-metadata.decorator';
-import { ValidationError } from 'class-validator';
-
-const formatValidationErrors = (errors: ValidationError[]): string[] => {
-  const result: string[] = [];
-
-  function recursiveExtract(errorList: ValidationError[]) {
-    for (const error of errorList) {
-      if (error.constraints) {
-        for (const constraintKey in error.constraints) {
-          result.push(`${error.property}: ${error.constraints[constraintKey]}`);
-        }
-      }
-      if (error.children && error.children.length) {
-        recursiveExtract(error.children);
-      }
-    }
-  }
-
-  recursiveExtract(errors);
-  return result;
-};
 
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T, any> {
@@ -59,50 +38,6 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, any> {
           message,
           data: responseData,
         };
-      }),
-      catchError((error) => {
-        if (
-          Array.isArray(error) &&
-          error.every((e) => e instanceof ValidationError)
-        ) {
-          const formattedErrors = formatValidationErrors(error);
-
-          return throwError(() => ({
-            success: false,
-            message: 'Validation failed',
-            errors: formattedErrors,
-            statusCode: 400,
-          }));
-        }
-
-        if (error.getStatus && error.getResponse) {
-          const status = error.getStatus();
-          const response = error.getResponse();
-
-          return throwError(() => ({
-            success: false,
-            message:
-              typeof response === 'string'
-                ? response
-                : (response as any).message || 'An error occurred',
-            errors:
-              typeof response === 'object' && (response as any).message
-                ? (response as any).message
-                : null,
-            statusCode: status,
-          }));
-        }
-
-        // For unknown errors, return generic message
-        return throwError(() => ({
-          success: false,
-          message:
-            process.env.NODE_ENV === 'development'
-              ? error.message || 'Internal server error'
-              : 'Network Error',
-          statusCode: 500,
-          ...error,
-        }));
       }),
     );
   }

@@ -16,7 +16,7 @@ import { Paginated } from 'src/common/utils/paginate';
 import { Expense } from './entity/expense.entity';
 import { TransactionInterceptor } from 'src/common/interceptors/transaction.interceptor';
 import { CreateExpenseDto } from './dto/create-expense.dto';
-import { TransactionRequest } from 'src/common/interfaces/TransactionRequest';
+import { TransactionRequest } from 'src/common/interfaces/request.interfaces';
 import { updateExpenseDto } from './dto/update-expense.dto';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
 

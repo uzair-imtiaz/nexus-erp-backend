@@ -16,11 +16,11 @@ import { JournalModule } from 'src/journal/journal.module';
     TypeOrmModule.forFeature([ExpenseDetail]),
     TenantModule,
     BankModule,
-    AccountModule,
     CommonModule,
     JournalModule,
   ],
   controllers: [ExpenseController],
   providers: [ExpenseService],
+  exports: [ExpenseService],
 })
 export class ExpenseModule {}
