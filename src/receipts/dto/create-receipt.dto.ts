@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
   IsArray,
   IsNotEmpty,
@@ -26,9 +27,9 @@ export class CreateReceiptdto extends BaseFinancialDto {
   @IsNotEmpty()
   customerId: string;
 
-  @IsArray({
-    each: true,
-  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SaleDto)
   @IsOptional()
   transactions?: SaleDto[];
 }

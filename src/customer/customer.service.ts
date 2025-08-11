@@ -18,7 +18,7 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Customer } from './entity/customer.entity';
 import { JournalService } from 'src/journal/journal.service';
 import { SaleService } from 'src/sale/sale.service';
-import { paginate } from 'src/common/utils/paginate';
+import { paginate, Paginated } from 'src/common/utils/paginate';
 
 @Injectable()
 export class CustomerService extends GenericService<
@@ -234,7 +234,9 @@ export class CustomerService extends GenericService<
     );
   }
 
-  async findCustomersWithOpenTransactions(filters: Record<string, any>) {
+  async findCustomersWithOpenTransactions(
+    filters: Record<string, any>,
+  ): Promise<Paginated<Customer>> {
     const tenantId = this.tenantContextService.getTenantId();
     const queryBuilder = this.customerRepository
       .createQueryBuilder('customer')
@@ -247,7 +249,7 @@ export class CustomerService extends GenericService<
 
     const { page, limit } = filters;
 
-    const paginated = paginate(queryBuilder, page, limit);
+    const paginated = await paginate(queryBuilder, page, limit);
     return paginated;
   }
 }
