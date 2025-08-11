@@ -12,11 +12,13 @@ import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { GenericService } from 'src/common/services/generic.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
-import { QueryRunner, Repository } from 'typeorm';
+import { DataSource, QueryRunner, Repository } from 'typeorm';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Customer } from './entity/customer.entity';
 import { JournalService } from 'src/journal/journal.service';
+import { SaleService } from 'src/sale/sale.service';
+import { paginate, Paginated } from 'src/common/utils/paginate';
 
 @Injectable()
 export class CustomerService extends GenericService<
@@ -230,5 +232,24 @@ export class CustomerService extends GenericService<
     await Promise.all(
       accounts.map((account) => this.accountService.delete(account.id, runner)),
     );
+  }
+
+  async findCustomersWithOpenTransactions(
+    filters: Record<string, any>,
+  ): Promise<Paginated<Customer>> {
+    const tenantId = this.tenantContextService.getTenantId();
+    const queryBuilder = this.customerRepository
+      .createQueryBuilder('customer')
+      .leftJoinAndSelect(
+        'customer.transactions',
+        'sale',
+        'sale.outstandingBalance > 0',
+      )
+      .where('customer.tenant.id = :tenantId', { tenantId });
+
+    const { page, limit } = filters;
+
+    const paginated = await paginate(queryBuilder, page, limit);
+    return paginated;
   }
 }

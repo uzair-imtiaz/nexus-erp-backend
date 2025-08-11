@@ -14,7 +14,7 @@ export class Bank extends BaseEntity {
   @Column()
   name: string;
 
-  @Column({ unique: true, name: 'account_number' })
+  @Column({ name: 'account_number' })
   accountNumber: string;
 
   @Column()

@@ -15,7 +15,7 @@ import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
 import { PurchaseFilterDto } from './dto/purchase-filters.dto';
 import { TransactionInterceptor } from 'src/common/interceptors/transaction.interceptor';
-import { TransactionRequest } from 'src/common/interfaces/TransactionRequest';
+import { TransactionRequest } from 'src/common/interfaces/request.interfaces';
 
 @UseGuards(TenantGuard)
 @UseGuards(JwtAuthGuard)

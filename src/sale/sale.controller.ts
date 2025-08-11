@@ -15,7 +15,7 @@ import { SaleService } from './sale.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { TransactionInterceptor } from 'src/common/interceptors/transaction.interceptor';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { TransactionRequest } from 'src/common/interfaces/TransactionRequest';
+import { TransactionRequest } from 'src/common/interfaces/request.interfaces';
 import { ResponseMetadata } from 'src/common/decorators/response-metadata.decorator';
 import { SaleFilterDto } from './dto/sale-filters.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';

@@ -4,26 +4,24 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Expense } from './entity/expense.entity';
-import { QueryRunner, Repository } from 'typeorm';
-import { CreateExpenseDto } from './dto/create-expense.dto';
-import { paginate, Paginated } from 'src/common/utils/paginate';
-import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { plainToInstance } from 'class-transformer';
 import { BankService } from 'src/bank/bank.service';
-import { AccountService } from 'src/account/account.service';
+import { paginate, Paginated } from 'src/common/utils/paginate';
+import { TenantContextService } from 'src/tenant/tenant-context.service';
+import { QueryRunner, Repository } from 'typeorm';
+import { CreateExpenseDto } from './dto/create-expense.dto';
 import { ExpenseDetail } from './entity/expense-detail.entity';
+import { Expense } from './entity/expense.entity';
 
-import { updateExpenseDto } from './dto/update-expense.dto';
 import { Bank } from 'src/bank/entity/bank.entity';
-import { EntityServiceManager } from 'src/common/services/entity-service-manager.service';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { AccountManagerService } from 'src/common/services/account-manager.service';
-import { JournalService } from 'src/journal/journal.service';
 import {
   CreateJournalDto,
   JournalDetailDto,
 } from 'src/journal/dto/create-journal.dto';
+import { JournalService } from 'src/journal/journal.service';
+import { updateExpenseDto } from './dto/update-expense.dto';
 
 @Injectable()
 export class ExpenseService {
@@ -33,8 +31,6 @@ export class ExpenseService {
     private expenseDetailRepository: Repository<ExpenseDetail>,
     private tenantContextService: TenantContextService,
     private bankService: BankService,
-    private accountService: AccountService,
-    private readonly entityServiceManager: EntityServiceManager,
     private readonly accountManagerService: AccountManagerService,
     private readonly journalService: JournalService,
   ) {}

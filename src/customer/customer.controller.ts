@@ -18,7 +18,7 @@ import { CustomerService } from './customer.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { CustomerFilterDto } from './dto/customer-filter.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
-import { TransactionRequest } from 'src/common/interfaces/TransactionRequest';
+import { TransactionRequest } from 'src/common/interfaces/request.interfaces';
 import { TenantGuard } from 'src/tenant/guards/tenant.guard';
 
 @Controller('customer')
@@ -50,6 +50,17 @@ export class CustomerController {
   })
   async findAll(@Query() filters: CustomerFilterDto) {
     return await this.customerService.findAll(filters);
+  }
+
+  @Get('customers_open_transactions')
+  @ResponseMetadata({
+    message: 'Customers with open transactions fetched successfully',
+    success: true,
+  })
+  async findCustomersWithOpenTransactions(@Query() filters: CustomerFilterDto) {
+    return await this.customerService.findCustomersWithOpenTransactions(
+      filters,
+    );
   }
 
   @Get(':id')

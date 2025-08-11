@@ -40,6 +40,19 @@ export class ContactBaseEntity extends BaseEntity {
   @Column({ name: 'opening_balance_date', type: 'date' })
   openingBalanceDate: Date;
 
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+    name: 'advance_balance',
+  })
+  advanceBalance: number;
+
   @Column()
   status: boolean;
 

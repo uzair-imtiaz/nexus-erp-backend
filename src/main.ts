@@ -6,8 +6,18 @@ import { NextFunction, Request, Response } from 'express';
 import * as session from 'express-session';
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import * as Sentry from '@sentry/nestjs';
 import { DataSource } from 'typeorm';
 import { seedAccounts } from './account/seeds';
+import { SentryFilter } from './common/filters/sentry.filter';
+import { GloablExceptionsFilter } from './common/filters/global-exception.filter';
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  tracesSampleRate: 1.0,
+  environment: process.env.NODE_ENV,
+  sendDefaultPii: true,
+});
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -84,6 +94,7 @@ async function bootstrap() {
       },
     }),
   );
+  app.useGlobalFilters(new SentryFilter(), new GloablExceptionsFilter());
   app.setGlobalPrefix('api');
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.use((_: Request, res: Response, next: NextFunction) => {
