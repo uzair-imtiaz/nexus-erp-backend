@@ -25,7 +25,7 @@ export class AccountManagerService {
         `Account for ${entityType} with ID ${entityId} not found`,
       );
     }
-    const validAccount = account.find((ba) => !ba.code.endsWith('cr'))!;
+    const validAccount = account.find((ba) => !ba.pathName.includes('Equity'))!;
     return validAccount;
   }
 

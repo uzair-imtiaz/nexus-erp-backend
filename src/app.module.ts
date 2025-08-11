@@ -26,6 +26,7 @@ import { TenantGuard } from './tenant/guards/tenant.guard';
 import { TenantModule } from './tenant/tenant.module';
 import { UsersModule } from './user/user.module';
 import { VendorModule } from './vendor/vendor.module';
+import { ReceiptsModule } from './receipts/receipts.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { VendorModule } from './vendor/vendor.module';
     FormulationModule,
     ProductionModule,
     ReportsModule,
+    ReceiptsModule,
   ],
   controllers: [AppController],
   providers: [

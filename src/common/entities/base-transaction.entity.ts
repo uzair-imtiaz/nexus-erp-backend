@@ -22,6 +22,15 @@ export class BaseTransactionEntity extends BaseEntity {
   })
   totalAmount: number;
 
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 2,
+    default: 0,
+    name: 'outstanding_balance',
+  })
+  outstandingBalance: number;
+
   @Column({ nullable: true })
   notes?: string;
 

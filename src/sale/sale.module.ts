@@ -24,5 +24,6 @@ import { JournalModule } from 'src/journal/journal.module';
   ],
   controllers: [SaleController],
   providers: [SaleService],
+  exports: [SaleService],
 })
 export class SaleModule {}

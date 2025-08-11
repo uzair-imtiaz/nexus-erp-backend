@@ -34,6 +34,7 @@ export class JournalService {
   async create(
     createJournalDto: CreateJournalDto,
     queryRunner: QueryRunner,
+    shouldIncrementEntityBalance = true,
   ): Promise<Journal> {
     const tenantId = this.tenantContextService.getTenantId()!;
 
@@ -77,7 +78,7 @@ export class JournalService {
       );
 
       // causing imbalance in the accounts
-      if (account.entityType) {
+      if (account.entityType && shouldIncrementEntityBalance) {
         await this.entityServiceManager.incrementEntityBalance(
           account.entityType as EntityType,
           account.entityId,

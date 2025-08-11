@@ -28,13 +28,14 @@ export class EntityServiceManager {
     entityId: string,
     amount: number,
     queryRunner?: QueryRunner,
+    columnName?: string,
   ) {
     switch (entityType) {
       case EntityType.VENDOR:
         await this.vendorService.incrementBalance(
           entityId,
           amount,
-          'openingBalance',
+          columnName || 'openingBalance',
           queryRunner,
         );
         break;
@@ -42,7 +43,7 @@ export class EntityServiceManager {
         await this.customerService.incrementBalance(
           entityId,
           amount,
-          'openingBalance',
+          columnName || 'openingBalance',
           queryRunner,
         );
         break;
@@ -50,7 +51,7 @@ export class EntityServiceManager {
         await this.inventoryService.incrementBalance(
           entityId,
           amount,
-          'amount',
+          columnName || 'amount',
           queryRunner,
         );
         break;
@@ -58,7 +59,7 @@ export class EntityServiceManager {
         await this.bankService.incrementBalance(
           entityId,
           amount,
-          'currentBalance',
+          columnName || 'currentBalance',
           queryRunner,
         );
         break;

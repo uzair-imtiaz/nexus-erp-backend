@@ -20,7 +20,7 @@ export class GenericService<
 
   constructor(
     private repository: Repository<T>,
-    private readonly tenantContextService: TenantContextService,
+    protected readonly tenantContextService: TenantContextService,
     entityName: string,
   ) {
     this.entityName = entityName.toLowerCase();

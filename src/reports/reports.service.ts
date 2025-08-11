@@ -18,12 +18,14 @@ import {
   ProfitAndLossReportResponseDto,
   ProfitAndLossSection,
 } from './dto/profit-loss.dto';
+import { ExpenseService } from 'src/expense/expense.service';
 
 @Injectable()
 export class ReportsService {
   constructor(
     private readonly journalService: JournalService,
     private readonly accountService: AccountService,
+    private readonly expenseService: ExpenseService,
   ) {}
 
   async getTrialBalance(query: TrialBalanceReportDto) {
@@ -238,7 +240,16 @@ export class ReportsService {
         Number(detail.credit || 0) - Number(detail.debit || 0);
     }
 
-    const buildSection = (names: string[], label: string) => {
+    const { data: expenses } = await this.expenseService.findAll({
+      ...query,
+      limit: Number.MAX_SAFE_INTEGER,
+    });
+
+    const buildSection = (
+      names: string[],
+      label: string,
+      isExpense = false,
+    ) => {
       const section: ProfitAndLossSection = {
         name: label,
         total: 0,
@@ -246,8 +257,20 @@ export class ReportsService {
       };
 
       for (const name of names) {
-        if (!grouped[name]) continue;
-        const entry = grouped[name];
+        let entry: {
+          account: Account;
+          amount: number;
+        };
+        if (isExpense) {
+          if (grouped[name].account.pathName.includes(label)) {
+            entry = grouped[name];
+          } else {
+            continue;
+          }
+        } else {
+          if (!grouped[name]) continue;
+          entry = grouped[name];
+        }
         const amount = entry.amount;
 
         section.accounts.push({

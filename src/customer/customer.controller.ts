@@ -52,6 +52,17 @@ export class CustomerController {
     return await this.customerService.findAll(filters);
   }
 
+  @Get('customers_open_transactions')
+  @ResponseMetadata({
+    message: 'Customers with open transactions fetched successfully',
+    success: true,
+  })
+  async findCustomersWithOpenTransactions(@Query() filters: CustomerFilterDto) {
+    return await this.customerService.findCustomersWithOpenTransactions(
+      filters,
+    );
+  }
+
   @Get(':id')
   @ResponseMetadata({
     message: 'Customer fetched successfully',

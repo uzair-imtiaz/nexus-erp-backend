@@ -137,6 +137,7 @@ export class PurchaseService {
     await queryRunner.manager.save(PurchaseInventory, inventories);
 
     savedTransaction.totalAmount = totalAmount;
+    savedTransaction.outstandingBalance = totalAmount;
     savedTransaction.journal = savedJournal;
     await queryRunner.manager.save(savedTransaction);
     return savedTransaction;

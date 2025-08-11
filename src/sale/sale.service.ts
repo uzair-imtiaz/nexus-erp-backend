@@ -2,12 +2,17 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { AccountService } from 'src/account/account.service';
+import { Account } from 'src/account/entity/account.entity';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { paginate, Paginated } from 'src/common/utils/paginate';
 import { CustomerService } from 'src/customer/customer.service';
 import { Customer } from 'src/customer/entity/customer.entity';
-import { Inventory } from 'src/inventory/entity/inventory.entity';
 import { InventoryService } from 'src/inventory/inventory.service';
+import {
+  CreateJournalDto,
+  JournalDetailDto,
+} from 'src/journal/dto/create-journal.dto';
+import { JournalService } from 'src/journal/journal.service';
 import { RedisService } from 'src/redis/redis.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { QueryRunner, Repository } from 'typeorm';
@@ -15,12 +20,6 @@ import { CreateSaleDto, InventoryDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { SaleInventory } from './entity/sale-inventory.entity';
 import { Sale } from './entity/sale.entity';
-import {
-  CreateJournalDto,
-  JournalDetailDto,
-} from 'src/journal/dto/create-journal.dto';
-import { JournalService } from 'src/journal/journal.service';
-import { Account } from 'src/account/entity/account.entity';
 
 @Injectable()
 export class SaleService {
@@ -184,9 +183,14 @@ export class SaleService {
       description: `Sale ${savedTransaction.ref ?? savedTransaction.id}`,
     };
     const journal = await this.journalService.create(journalDto, queryRunner);
+    const customer = await this.customerService.findOne(dto.customerId);
+
     savedTransaction.journal = journal;
     savedTransaction.totalAmount = totalAmount;
+    savedTransaction.outstandingBalance = totalAmount;
     await queryRunner.manager.save(savedTransaction);
+    if (customer.advanceBalance > 0)
+      await this.handleAdvanceBalance(savedTransaction, customer, queryRunner);
     return savedTransaction;
   }
 
@@ -320,6 +324,24 @@ export class SaleService {
       });
     }
   }
+
+  private async handleAdvanceBalance(
+    sale: Sale,
+    customer: Customer,
+    queryRunner: QueryRunner,
+  ) {
+    const originalAdvance = customer.advanceBalance;
+
+    const appliedAdvance = Math.min(originalAdvance, sale.totalAmount);
+
+    // Reduce advanceBalance by the amount applied
+    customer.advanceBalance = originalAdvance - appliedAdvance;
+    await queryRunner.manager.save(customer);
+
+    // Reduce sale's outstanding amount
+    sale.totalAmount = sale.totalAmount - appliedAdvance;
+  }
+
   async findAll(filters: Record<string, any>): Promise<Paginated<Sale>> {
     const tenantId = this.tenantContextService.getTenantId();
     const queryBuilder = this.saleRepository
@@ -328,7 +350,17 @@ export class SaleService {
       .leftJoinAndSelect('sale.customer', 'customer')
       .where('sale.tenant.id = :tenantId', { tenantId });
 
-    const { page, limit } = filters;
+    const { page, limit, ...filterFields } = filters;
+
+    const ALLOWED_FILTERS = ['customer.id'];
+
+    Object.entries(filterFields).forEach(([key, value]) => {
+      if (value && ALLOWED_FILTERS.includes(key)) {
+        queryBuilder.andWhere(`sale.${key} ILIKE :${key}`, {
+          [key]: `%${value}%`,
+        });
+      }
+    });
 
     const paginated = await paginate(queryBuilder, page, limit);
     paginated.data = paginated.data.map((item) => {
@@ -557,5 +589,14 @@ export class SaleService {
     await this.journalService.create(journalDto, queryRunner);
     await queryRunner.manager.softDelete(Sale, { id });
     await queryRunner.manager.softDelete(SaleInventory, { sale: { id } });
+  }
+
+  async updateOutstandingBalance(
+    saleId: string,
+    amount: number,
+  ): Promise<void> {
+    await this.saleRepository.update(saleId, {
+      outstandingBalance: () => `"outstanding_balance" - ${amount}`,
+    });
   }
 }

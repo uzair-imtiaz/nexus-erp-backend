@@ -4,12 +4,15 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ValidationError } from 'class-validator';
 
 @Catch()
 export class GloablExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(GloablExceptionsFilter.name);
+
   catch(exception: any, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const request = ctx.getRequest<Request>();
@@ -21,6 +24,12 @@ export class GloablExceptionsFilter implements ExceptionFilter {
       : HttpStatus.INTERNAL_SERVER_ERROR;
 
     let message: string = 'An unexpected error occurred';
+
+    // Logging full error details
+    this.logger.error(
+      `Error occurred on ${request.method} ${request.url}`,
+      exception?.stack || JSON.stringify(exception),
+    );
 
     // Handle ValidationError[]
     if (
