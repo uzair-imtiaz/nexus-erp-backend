@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { BaseFinancialDto } from 'src/common/dtos/create-base-financial.dto';
@@ -15,9 +16,11 @@ class PurchaseDto {
   id: string;
 
   @IsNumber()
+  @Min(0)
   amount: number;
 
   @IsNumber()
+  @Min(0)
   discount?: number;
 }
 

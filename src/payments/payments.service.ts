@@ -94,13 +94,13 @@ export class PaymentsService {
     await Promise.all(purchasesPromises);
     journalDetails.push(
       {
-        description: `Sale Payment Creation for amount ${createPaymentDto.amount} ${advanceBalance > 0 ? 'with advance balance' : ''}`,
+        description: `Purchase Payment Creation for amount ${createPaymentDto.amount} ${advanceBalance > 0 ? 'with advance balance' : ''}`,
         nominalAccountId: vendorAccount.id,
         credit: totalAmount,
         debit: 0,
       },
       {
-        description: `Sale Payment Creation for amount ${createPaymentDto.amount} ${advanceBalance > 0 ? 'with advance balance' : ''}`,
+        description: `Purchase Payment Creation for amount ${createPaymentDto.amount} ${advanceBalance > 0 ? 'with advance balance' : ''}`,
         nominalAccountId: bankAccount.id,
         credit: 0,
         debit: createPaymentDto.amount - totalDiscount,
