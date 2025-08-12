@@ -5,30 +5,33 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { BaseFinancialDto } from 'src/common/dtos/create-base-financial.dto';
 
-class SaleDto {
+class PurchaseDto {
   @IsString()
   @IsNotEmpty()
   id: string;
 
   @IsNumber()
+  @Min(0)
   amount: number;
 
   @IsNumber()
+  @Min(0)
   discount?: number;
 }
 
-export class CreateReceiptdto extends BaseFinancialDto {
+export class CreatePaymentdto extends BaseFinancialDto {
   @IsString()
   @IsNotEmpty()
-  customerId: string;
+  vendorId: string;
 
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => SaleDto)
+  @Type(() => PurchaseDto)
   @IsOptional()
-  transactions?: SaleDto[];
+  transactions?: PurchaseDto[];
 }

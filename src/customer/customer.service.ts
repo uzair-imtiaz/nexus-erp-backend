@@ -7,18 +7,16 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { AccountService } from 'src/account/account.service';
 import { CreateAccountDto } from 'src/account/dto/create-account.dto';
-import { UpdateAccountDto } from 'src/account/dto/update-account.dto';
 import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { GenericService } from 'src/common/services/generic.service';
+import { paginate, Paginated } from 'src/common/utils/paginate';
+import { JournalService } from 'src/journal/journal.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
-import { DataSource, QueryRunner, Repository } from 'typeorm';
+import { QueryRunner, Repository } from 'typeorm';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Customer } from './entity/customer.entity';
-import { JournalService } from 'src/journal/journal.service';
-import { SaleService } from 'src/sale/sale.service';
-import { paginate, Paginated } from 'src/common/utils/paginate';
 
 @Injectable()
 export class CustomerService extends GenericService<

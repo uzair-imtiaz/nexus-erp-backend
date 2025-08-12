@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AccountService } from 'src/account/account.service';
@@ -11,10 +12,12 @@ import { AccountType } from 'src/account/interfaces/account-type.enum';
 import { UpdateContactDto } from 'src/common/dtos/update-contact-base.dto';
 import { EntityType } from 'src/common/enums/entity-type.enum';
 import { GenericService } from 'src/common/services/generic.service';
+import { paginate, Paginated } from 'src/common/utils/paginate';
 import { JournalService } from 'src/journal/journal.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { QueryRunner, Repository } from 'typeorm';
 import { CreateVendorDto } from './dto/create-vendor.dto';
+import { VendorFilterDto } from './dto/vendor-filter.dto';
 import { Vendor } from './entity/vendor.entity';
 
 @Injectable()
@@ -233,5 +236,24 @@ export class VendorService extends GenericService<
     await Promise.all(
       accounts.map((account) => this.accountService.delete(account.id, runner)),
     );
+  }
+
+  async findAllWithOpenTransactions(
+    @Query() filters: VendorFilterDto,
+  ): Promise<Paginated<Vendor>> {
+    const tenantId = this.tenantContextService.getTenantId();
+    console.log('tenantId', tenantId);
+    const queryBuilder = this.vendorRepository
+      .createQueryBuilder('vendor')
+      .leftJoinAndSelect(
+        'vendor.transactions',
+        'purchases',
+        'purchases.outstandingBalance > 0',
+      )
+      .where('vendor.tenant.id = :tenantId', { tenantId });
+
+    const { page, limit } = filters;
+    const paginated = await paginate(queryBuilder, page, limit);
+    return paginated;
   }
 }

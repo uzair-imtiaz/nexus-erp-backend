@@ -27,6 +27,7 @@ import { TenantModule } from './tenant/tenant.module';
 import { UsersModule } from './user/user.module';
 import { VendorModule } from './vendor/vendor.module';
 import { ReceiptsModule } from './receipts/receipts.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { ReceiptsModule } from './receipts/receipts.module';
     ProductionModule,
     ReportsModule,
     ReceiptsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [

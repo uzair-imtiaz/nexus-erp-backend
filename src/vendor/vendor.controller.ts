@@ -40,6 +40,15 @@ export class VendorController {
     return await this.vendorService.create(createVendorDto, req.queryRunner);
   }
 
+  @Get('vendors_open_transactions')
+  @ResponseMetadata({
+    success: true,
+    message: 'Vendors fetched successfully',
+  })
+  async findAllWithTransactions(@Query() filters: VendorFilterDto) {
+    return await this.vendorService.findAllWithOpenTransactions(filters);
+  }
+
   @Get()
   @ResponseMetadata({
     success: true,

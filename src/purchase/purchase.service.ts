@@ -32,7 +32,6 @@ export class PurchaseService {
     private purchaseInventoryRepository: Repository<PurchaseInventory>,
     private readonly accountService: AccountService,
     private readonly tenantContextService: TenantContextService,
-    private readonly vendorService: VendorService,
     private readonly inventoryService: InventoryService,
     private readonly redisService: RedisService,
     private readonly journalService: JournalService,
@@ -308,5 +307,11 @@ export class PurchaseService {
       return instance;
     });
     return paginated;
+  }
+
+  async updateOutstandingBalance(id: string, amount: number) {
+    await this.purchaseRepository.update(id, {
+      outstandingBalance: () => `"outstanding_balance" - ${amount}`,
+    });
   }
 }
