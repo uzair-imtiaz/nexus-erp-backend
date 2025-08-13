@@ -61,28 +61,28 @@ jobs:
             SENTRY_ORG=${{ secrets.SENTRY_ORG }}
             SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
 
-    #   - name: Deploy to EC2
-    #     uses: appleboy/ssh-action@v1.0.3
-    #     with:
-    #       host: ${{ secrets.EC2_HOST }}
-    #       username: ${{ secrets.EC2_USERNAME }}
-    #       key: ${{ secrets.EC2_SSH_KEY }}
-    #       script: |
-    #         docker pull ${{ secrets.DOCKER_USERNAME }}/nexus-erp-backend:latest
-    #         docker stop nexus-erp-backend || true
-    #         docker rm nexus-erp-backend || true
-    #         docker run -d --name nexus-erp-backend -p 80:80 \
-    #           -e COOKIE_SECRET="${{ secrets.COOKIE_SECRET }}" \
-    #           -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-    #           -e JWT_REFRESH_SECRET="${{ secrets.JWT_REFRESH_SECRET }}" \
-    #           -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-    #           -e NODE_ENV="${{ secrets.NODE_ENV }}" \
-    #           -e PORT="${{ secrets.PORT }}" \
-    #           -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
-    #           -e REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
-    #           -e REDIS_PORT="${{ secrets.REDIS_PORT }}" \
-    #           -e SENTRY_AUTH="${{ secrets.SENTRY_AUTH }}" \
-    #           -e SENTRY_DSN="${{ secrets.SENTRY_DSN }}" \
-    #           -e SENTRY_ORG="${{ secrets.SENTRY_ORG }}" \
-    #           -e SENTRY_PROJECT="${{ secrets.SENTRY_PROJECT }}" \
-    #           ${{ secrets.DOCKER_USERNAME }}/nexus-erp-backend:latest
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKER_USERNAME }}/nexus-erp-backend:latest
+            docker stop nexus-erp-backend || true
+            docker rm nexus-erp-backend || true
+            docker run -d --name nexus-erp-backend -p 80:80 \
+              -e COOKIE_SECRET="${{ secrets.COOKIE_SECRET }}" \
+              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              -e JWT_REFRESH_SECRET="${{ secrets.JWT_REFRESH_SECRET }}" \
+              -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              -e NODE_ENV="${{ secrets.NODE_ENV }}" \
+              -e PORT="${{ secrets.PORT }}" \
+              -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
+              -e REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
+              -e REDIS_PORT="${{ secrets.REDIS_PORT }}" \
+              -e SENTRY_AUTH="${{ secrets.SENTRY_AUTH }}" \
+              -e SENTRY_DSN="${{ secrets.SENTRY_DSN }}" \
+              -e SENTRY_ORG="${{ secrets.SENTRY_ORG }}" \
+              -e SENTRY_PROJECT="${{ secrets.SENTRY_PROJECT }}" \
+              ${{ secrets.DOCKER_USERNAME }}/nexus-erp-backend:latest
