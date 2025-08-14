@@ -30,11 +30,11 @@ export class PaymentsService {
     const tenantId = this.tenantContextService.getTenantId()!;
     const journalDetails: JournalDetailDto[] = [];
 
-    const discountAccount = await this.accountService.findOne({
-      name: 'Discount Allowed',
+    const discountReceived = await this.accountService.findOne({
+      name: 'Discount Received',
     });
 
-    if (!discountAccount) {
+    if (!discountReceived) {
       throw new NotFoundException('Discount Account not found');
     }
 
@@ -54,9 +54,9 @@ export class PaymentsService {
         if (purchase.discount) {
           journalDetails.push({
             description: `Discount on payment for purchase ${purchase.id}`,
-            nominalAccountId: discountAccount.id,
-            credit: 0,
-            debit: purchase.discount,
+            nominalAccountId: discountReceived.id,
+            debit: 0,
+            credit: purchase.discount,
           });
           totalDiscount += purchase.discount ?? 0;
         }
@@ -84,10 +84,10 @@ export class PaymentsService {
         'openingBalance',
       );
       journalDetails.push({
-        description: `Advance balance via payment ${createPaymentDto.ref}`,
+        description: `Advance balance via payment`,
         nominalAccountId: vendorAccount.id,
-        credit: 0,
-        debit: advanceBalance,
+        debit: 0,
+        credit: advanceBalance,
       });
     }
 
@@ -96,14 +96,14 @@ export class PaymentsService {
       {
         description: `Purchase Payment Creation for amount ${createPaymentDto.amount} ${advanceBalance > 0 ? 'with advance balance' : ''}`,
         nominalAccountId: vendorAccount.id,
-        credit: totalAmount,
-        debit: 0,
+        debit: totalAmount,
+        credit: 0,
       },
       {
         description: `Purchase Payment Creation for amount ${createPaymentDto.amount} ${advanceBalance > 0 ? 'with advance balance' : ''}`,
         nominalAccountId: bankAccount.id,
-        credit: 0,
-        debit: createPaymentDto.amount - totalDiscount,
+        debit: 0,
+        credit: createPaymentDto.amount - totalDiscount,
       },
     );
     const x = this.paymentRepository.create({
