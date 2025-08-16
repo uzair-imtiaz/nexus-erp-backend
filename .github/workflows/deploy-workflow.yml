@@ -78,6 +78,12 @@ jobs:
             REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
             REDIS_PORT=${{ secrets.REDIS_PORT }}
 
+      - name: Set up SSH key
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
