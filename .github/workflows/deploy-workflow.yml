@@ -95,14 +95,14 @@ jobs:
             docker stop nexus-erp-backend || true
             docker rm nexus-erp-backend || true
             docker run -d --name nexus-erp-backend -p 80:80 \
-              -e COOKIE_SECRET="${{ secrets.COOKIE_SECRET }}" \
-              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-              -e JWT_REFRESH_SECRET="${{ secrets.JWT_REFRESH_SECRET }}" \
-              -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-              -e NODE_ENV="${{ secrets.NODE_ENV }}" \
-              -e PORT="${{ secrets.PORT }}" \
-              -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
-              -e REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
-              -e REDIS_PORT="${{ secrets.REDIS_PORT }}" \
-              -e SENTRY_DSN="${{ secrets.SENTRY_DSN }}" \
+              -e COOKIE_SECRET=${{ secrets.COOKIE_SECRET }} \
+              -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+              -e JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }} \
+              -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
+              -e NODE_ENV=${{ secrets.NODE_ENV }} \
+              -e PORT=${{ secrets.PORT }} \
+              -e REDIS_HOST=${{ secrets.REDIS_HOST }} \
+              -e REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} \
+              -e REDIS_PORT=${{ secrets.REDIS_PORT }} \
+              -e SENTRY_DSN=${{ secrets.SENTRY_DSN }} \
               ${{ secrets.DOCKER_USERNAME }}/nexus-erp-backend:latest
