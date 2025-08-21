@@ -108,5 +108,8 @@ jobs:
             SENTRY_DSN=${{ secrets.SENTRY_DSN }}
             EOL
 
+            # Run migrations before starting the app
+            docker run --rm --env-file .env ${{ secrets.DOCKER_USERNAME }}/nexus-erp-backend:latest npm run migration:run
+
             # Run container using --env-file
             docker run -d --name nexus-erp-backend -p 3001:3001 --env-file .env ${{ secrets.DOCKER_USERNAME }}/nexus-erp-backend:latest

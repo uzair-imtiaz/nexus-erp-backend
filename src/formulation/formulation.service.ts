@@ -50,6 +50,9 @@ export class FormulationService {
     createFormulationDto: CreateFormulationDto,
   ): Promise<Formulation> {
     const tenantId = this.tenantContextService.getTenantId();
+    if (!createFormulationDto.name) {
+      createFormulationDto.name = createFormulationDto.products[0].name;
+    }
     const formulation = this.formulationRepository.create({
       ...createFormulationDto,
       tenant: { id: tenantId },
