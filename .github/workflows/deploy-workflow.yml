@@ -11,6 +11,7 @@ jobs:
     env:
       COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DB_HOST: ${{ secrets.DB_HOST }}
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       EC2_HOST: ${{ secrets.EC2_HOST }}
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
@@ -77,6 +78,7 @@ jobs:
             REDIS_HOST=${{ secrets.REDIS_HOST }}
             REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
             REDIS_PORT=${{ secrets.REDIS_PORT }}
+            DB_HOST=${{ secrets.DB_HOST }}
 
       - name: Set up SSH key
         run: |
@@ -84,7 +86,7 @@ jobs:
           chmod 600 key.pem
 
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
@@ -94,15 +96,23 @@ jobs:
             docker pull ${{ secrets.DOCKER_USERNAME }}/nexus-erp-backend:latest
             docker stop nexus-erp-backend || true
             docker rm nexus-erp-backend || true
-            docker run -d --name nexus-erp-backend -p 80:80 \
-              -e COOKIE_SECRET="${{ secrets.COOKIE_SECRET }}" \
-              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-              -e JWT_REFRESH_SECRET="${{ secrets.JWT_REFRESH_SECRET }}" \
-              -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-              -e NODE_ENV="${{ secrets.NODE_ENV }}" \
-              -e PORT="${{ secrets.PORT }}" \
-              -e REDIS_HOST="${{ secrets.REDIS_HOST }}" \
-              -e REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
-              -e REDIS_PORT="${{ secrets.REDIS_PORT }}" \
-              -e SENTRY_DSN="${{ secrets.SENTRY_DSN }}" \
-              ${{ secrets.DOCKER_USERNAME }}/nexus-erp-backend:latest
+
+            cat > .env <<'EOL'
+            COOKIE_SECRET=${{ secrets.COOKIE_SECRET }}
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            NODE_ENV=${{ secrets.NODE_ENV }}
+            PORT=${{ secrets.PORT }}
+            REDIS_HOST=${{ secrets.REDIS_HOST }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            REDIS_PORT=${{ secrets.REDIS_PORT }}
+            SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+            DB_HOST=${{ secrets.DB_HOST }}
+            EOL
+
+            # Run migrations before starting the app
+            docker run --rm --env-file .env ${{ secrets.DOCKER_USERNAME }}/nexus-erp-backend:latest npm run migration:run:prod
+
+            # Run container using --env-file
+            docker run -d --name nexus-erp-backend -p 3001:3001 --env-file .env ${{ secrets.DOCKER_USERNAME }}/nexus-erp-backend:latest

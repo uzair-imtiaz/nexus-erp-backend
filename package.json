@@ -18,6 +18,7 @@
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "migration:generate": "pnpm typeorm migration:generate",
     "migration:run": "pnpm typeorm migration:run",
+    "migration:run:prod": "node ./node_modules/typeorm/cli.js migration:run -d dist/data-source.js",
     "migration:show": "pnpm typeorm migration:show",
     "migration:revert": "pnpm typeorm migration:revert",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",

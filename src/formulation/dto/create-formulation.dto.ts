@@ -18,7 +18,7 @@ export class CreateFormulationDto {
   code: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   name: string;
 
   @IsNumber()
