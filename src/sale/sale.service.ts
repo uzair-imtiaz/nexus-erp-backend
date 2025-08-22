@@ -1,9 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
+import * as dayjs from 'dayjs';
 import { AccountService } from 'src/account/account.service';
 import { Account } from 'src/account/entity/account.entity';
 import { EntityType } from 'src/common/enums/entity-type.enum';
+import { LocalFileService } from 'src/common/services/local-file.service';
+import { PdfService } from 'src/common/services/pdf.service';
 import { paginate, Paginated } from 'src/common/utils/paginate';
 import { CustomerService } from 'src/customer/customer.service';
 import { Customer } from 'src/customer/entity/customer.entity';
@@ -33,6 +36,8 @@ export class SaleService {
     private readonly accountService: AccountService,
     private readonly redisService: RedisService,
     private readonly journalService: JournalService,
+    private readonly pdfService: PdfService,
+    private readonly fileService: LocalFileService,
   ) {}
   // Public API
   async createSale(
@@ -598,5 +603,54 @@ export class SaleService {
     await this.saleRepository.update(saleId, {
       outstandingBalance: () => `"outstanding_balance" - ${amount}`,
     });
+  }
+
+  async generateInvoice(saleId: string): Promise<string> {
+    try {
+      const sale = await this.saleRepository.findOne({
+        where: { id: saleId },
+        relations: ['customer', 'inventories', 'tenant'],
+      });
+
+      if (!sale) throw new NotFoundException('Sale not found');
+
+      if (await this.fileService.exists(`invoice-${sale.id}.pdf`)) {
+        return `invoice-${sale.id}.pdf`;
+      }
+
+      const totals = sale.inventories.reduce(
+        (acc, curr) => ({
+          tax: acc.tax + (curr.tax ?? 0),
+          discount: acc.discount + (curr.discount ?? 0),
+        }),
+
+        { tax: 0, discount: 0 },
+      );
+
+      const html = await this.pdfService.renderTemplate('template', {
+        ...sale,
+        transactor: sale.customer,
+        type: 'Invoice',
+        totalTax: totals.tax,
+        totalDiscount: totals.discount,
+        formattedDate: dayjs(sale.date).format('DD-MM-YYYY'),
+      });
+
+      const buffer = await this.pdfService.htmlToPdf(html);
+      const fileName = `invoice-${sale.id}.pdf`;
+
+      await this.fileService.save(fileName, buffer);
+      return fileName;
+    } catch (error) {
+      console.error('Failed to generate invoice', error);
+      throw error;
+    }
+  }
+
+  async getInvoiceFile(fileName: string): Promise<string> {
+    if (!(await this.fileService.exists(fileName))) {
+      throw new NotFoundException('Invoice not found');
+    }
+    return this.fileService.getFilePath(fileName);
   }
 }

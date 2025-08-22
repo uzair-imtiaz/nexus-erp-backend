@@ -28,6 +28,7 @@ import { UsersModule } from './user/user.module';
 import { VendorModule } from './vendor/vendor.module';
 import { ReceiptsModule } from './receipts/receipts.module';
 import { PaymentsModule } from './payments/payments.module';
+import { CodeModule } from './code/code.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { PaymentsModule } from './payments/payments.module';
     ReportsModule,
     ReceiptsModule,
     PaymentsModule,
+    CodeModule,
   ],
   controllers: [AppController],
   providers: [

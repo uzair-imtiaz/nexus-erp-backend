@@ -9,6 +9,7 @@ import { PurchaseInventory } from './entity/purchase-inventory.entity';
 import { Purchase } from './entity/purchase.entity';
 import { PurchaseController } from './purchase.controller';
 import { PurchaseService } from './purchase.service';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { PurchaseService } from './purchase.service';
     RedisModule,
     InventoryModule,
     JournalModule,
+    CommonModule,
   ],
   controllers: [PurchaseController],
   providers: [PurchaseService],

@@ -15,6 +15,9 @@ export abstract class BaseTransactionInventory extends BaseEntity {
   })
   quantity: number;
 
+  @Column({ nullable: true })
+  name: string;
+
   @Column({
     type: 'decimal',
     precision: 18,

@@ -10,6 +10,7 @@ import { Sale } from './entity/sale.entity';
 import { SaleController } from './sale.controller';
 import { SaleService } from './sale.service';
 import { JournalModule } from 'src/journal/journal.module';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { JournalModule } from 'src/journal/journal.module';
     CustomerModule,
     InventoryModule,
     RedisModule,
+    CommonModule,
     JournalModule,
   ],
   controllers: [SaleController],
