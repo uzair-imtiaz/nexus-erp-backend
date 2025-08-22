@@ -12,6 +12,14 @@ import { RESPONSE_METADATA_KEY } from '../decorators/response-metadata.decorator
 export class ResponseInterceptor<T> implements NestInterceptor<T, any> {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const handler = context.getHandler();
+    const skipInterceptor = Reflect.getMetadata(
+      'skipResponseInterceptor',
+      handler,
+    );
+
+    if (skipInterceptor) {
+      return next.handle();
+    }
     const metadata = Reflect.getMetadata(RESPONSE_METADATA_KEY, handler);
 
     const success = metadata?.success ?? true;

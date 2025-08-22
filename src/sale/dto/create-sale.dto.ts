@@ -23,6 +23,10 @@ export class InventoryDto {
   @Min(0)
   rate: number;
 
+  @IsString()
+  @IsOptional()
+  name?: string;
+
   @IsNumber()
   @IsOptional()
   @Min(0)

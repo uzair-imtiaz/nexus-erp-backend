@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Invoice</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+            
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: 'Inter', sans-serif;
+                background: none;
+                padding: 0px;
+                margin: 0px;
+                min-height: 100vh;
+            }
+            
+            .invoice-container {
+                /* max-width: 750px; */
+                margin: 0 auto;
+                padding: 0;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+                overflow: hidden;
+                position: relative;
+            }
+            
+            .invoice-container::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 4px;
+                background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcf7f, #4d79ff);
+            }
+            
+            .header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 30px 40px 25px;
+                position: relative;
+            }
+            
+            .header-content {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+            }
+            
+            .logo-section h1 {
+                font-size: 26px;
+                font-weight: 700;
+                margin-bottom: 4px;
+                letter-spacing: -0.5px;
+            }
+            
+            .logo-section p {
+                font-size: 13px;
+                opacity: 0.9;
+                line-height: 1.4;
+            }
+            
+            .invoice-badge {
+                background: rgba(255, 255, 255, 0.2);
+                backdrop-filter: blur(10px);
+                padding: 8px 20px;
+                border-radius: 50px;
+                font-size: 14px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .content {
+                padding: 30px 40px 35px;
+            }
+            
+            .invoice-meta {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                gap: 30px;
+                margin-bottom: 30px;
+            }
+            
+            .bill-to h3 {
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: #666;
+                letter-spacing: 0.5px;
+                margin-bottom: 8px;
+            }
+            
+            .bill-to .client-info {
+                color: #333;
+                line-height: 1.5;
+                font-size: 14px;
+            }
+            
+            .invoice-details {
+                text-align: right;
+                font-size: 14px;
+                color: #666;
+                line-height: 1.6;
+            }
+            
+            .invoice-details strong {
+                color: #333;
+            }
+            
+            .items-section {
+                margin-bottom: 25px;
+            }
+            
+            .items-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 14px;
+            }
+            
+            .items-table thead {
+                background: #f8fafc;
+            }
+            
+            .items-table th {
+                padding: 12px 8px;
+                text-align: left;
+                font-weight: 600;
+                color: #475569;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+                border-bottom: 2px solid #e2e8f0;
+            }
+            
+            .items-table td {
+                padding: 16px 8px;
+                border-bottom: 1px solid #f1f5f9;
+                vertical-align: top;
+            }
+            
+            .items-table tbody tr:hover {
+                background: #f8fafc;
+            }
+            
+            .item-name {
+                font-weight: 600;
+                color: #1e293b;
+                margin-bottom: 4px;
+            }
+            
+            .item-description {
+                font-size: 12px;
+                color: #64748b;
+                line-height: 1.4;
+            }
+            
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            
+            .price-col, .total-col {
+                font-weight: 600;
+                color: #1e293b;
+            }
+            
+            .summary {
+                margin-top: 20px;
+                display: flex;
+                justify-content: flex-end;
+            }
+            
+            .summary-table {
+                width: 280px;
+            }
+            
+            .summary-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 8px 0;
+                font-size: 14px;
+                color: #64748b;
+            }
+            
+            .summary-row span:last-child {
+                font-weight: 500;
+                color: #1e293b;
+            }
+            
+            .summary-total {
+                border-top: 2px solid #e2e8f0;
+                margin-top: 8px;
+                padding-top: 12px;
+                font-weight: 700;
+                font-size: 16px;
+                color: #1e293b;
+            }
+            
+            .footer {
+                background: #f8fafc;
+                padding: 25px 40px;
+                display: flex;
+                justify-content: space-between;
+                gap: 40px;
+                align-items: end;
+                margin-top: 20px;
+            }
+            
+            .payment-info h4 {
+                font-size: 14px;
+                font-weight: 600;
+                color: #1e293b;
+                margin-bottom: 8px;
+            }
+            
+            .payment-info p {
+                font-size: 13px;
+                color: #64748b;
+                line-height: 1.5;
+                margin-bottom: 15px;
+            }
+            
+            .signature-section {
+                text-align: right;
+            }
+            
+            .signature-name {
+                font-family: 'Dancing Script', cursive;
+                font-size: 28px;
+                color: #667eea;
+                margin-bottom: 4px;
+            }
+            
+            .signature-details {
+                font-size: 13px;
+                color: #64748b;
+                line-height: 1.3;
+            }
+            
+            .signature-details strong {
+                color: #1e293b;
+            }
+            
+            @media (max-width: 768px) {
+                /* body { padding: 10px; } */
+                /* .header, .footer { padding: 20px; } */
+                .invoice-meta { grid-template-columns: 1fr; gap: 20px; }
+                .footer { grid-template-columns: 1fr; gap: 20px; }
+                .signature-section { text-align: left; margin-top: 15px; }
+            }
+        </style>
+        <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+    </head>
+    <body>
+        <div class="invoice-container">
+            <div class="header">
+                <div class="header-content">
+                    <div class="logo-section">
+                        <h1><%= tenant.name %></h1>
+                        <p>123 Anywhere St., Any City<br>+123-456-7890</p>
+                    </div>
+                    <div class="invoice-badge"><%= type %></div>
+                </div>
+            </div>
+            
+            <div class="content">
+                <div class="invoice-meta">
+                    <div class="bill-to">
+                        <h3>Bill To</h3>
+                        <div class="client-info">
+                            <strong><%= transactor.name %></strong><br>
+                            <%= transactor.address %><br>
+                            <%= transactor.phone %>
+                        </div>
+                    </div>
+                    <div class="invoice-details">
+                        <strong><%= type %> #<%= id %></strong><br>
+                        Date: <%= formattedDate %><br><br>
+                    </div>
+                </div>
+
+                <div class="items-section">
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50%;">Description</th>
+                                <th class="text-center" style="width: 17%;">Price</th>
+                                <th class="text-center" style="width: 10%;">Qty</th>
+                                <th class="text-right" style="width: 23%;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% inventories.forEach(item => { %>
+                            <tr>
+                                <td>
+                                <div class="item-name"><%= item.name %></div>
+                                <div class="item-description"><%= item.description %></div>
+                                </td>
+                                <td class="text-center price-col">PKR <%= item.rate %></td>
+                                <td class="text-center"><%= item.quantity %></td>
+                                <td class="text-right total-col">PKR <%= Number(item.quantity) * Number(item.rate) + Number(item.tax) - Number(item.discount) %></td>
+                            </tr>
+                            <% }) %>
+                        </tbody>
+                        
+                    </table>
+                </div>
+
+                <div class="summary">
+                    <div class="summary-table">
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <span>PKR  <%= Number(totalAmount) %></span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Tax</span>
+                            <span>PKR <%= Number(totalTax) %></span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Discount</span>
+                            <span>PKR <%= Number(totalDiscount) %></span>
+                        </div>
+                        <div class="summary-row summary-total">
+                            <span>Total</span>
+                            <span>PKR <%= Number(totalAmount) + Number(totalTax) - Number(totalDiscount) %></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <div class="payment-info">
+                    <h4>Payment Method</h4>
+                    <p>
+                        <strong>Central Bank</strong><br>
+                        Account: Samira Hadid<br>
+                        +123-456-7890
+                    </p>
+                    <h4>Terms & Conditions</h4>
+                    <p>Payment due within 3 days. Late fees may apply.</p>
+                </div>
+                <div class="signature-section">
+                    <div class="signature-name">Samira Hadid</div>
+                    <div class="signature-details">
+                        <strong>Samira Hadid</strong><br>
+                        Manager
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

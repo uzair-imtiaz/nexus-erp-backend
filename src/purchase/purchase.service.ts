@@ -5,9 +5,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
+import * as dayjs from 'dayjs';
 import { AccountService } from 'src/account/account.service';
 import { Account } from 'src/account/entity/account.entity';
 import { EntityType } from 'src/common/enums/entity-type.enum';
+import { LocalFileService } from 'src/common/services/local-file.service';
+import { PdfService } from 'src/common/services/pdf.service';
 import { paginate, Paginated } from 'src/common/utils/paginate';
 import { InventoryService } from 'src/inventory/inventory.service';
 import {
@@ -17,7 +20,6 @@ import {
 import { JournalService } from 'src/journal/journal.service';
 import { RedisService } from 'src/redis/redis.service';
 import { TenantContextService } from 'src/tenant/tenant-context.service';
-import { VendorService } from 'src/vendor/vendor.service';
 import { QueryRunner, Repository } from 'typeorm';
 import { CreatePurchaseDto, InventoryDto } from './dto/create-purchase.dto';
 import { PurchaseInventory } from './entity/purchase-inventory.entity';
@@ -35,6 +37,8 @@ export class PurchaseService {
     private readonly inventoryService: InventoryService,
     private readonly redisService: RedisService,
     private readonly journalService: JournalService,
+    private readonly fileService: LocalFileService,
+    private readonly pdfService: PdfService,
   ) {}
 
   async createPurchase(
@@ -313,5 +317,56 @@ export class PurchaseService {
     await this.purchaseRepository.update(id, {
       outstandingBalance: () => `"outstanding_balance" - ${amount}`,
     });
+  }
+
+  async generateBill(purchaseId: string): Promise<string> {
+    try {
+      const purchase = await this.purchaseRepository.findOne({
+        where: { id: purchaseId },
+        relations: ['vendor', 'inventories', 'tenant'],
+      });
+
+      if (!purchase) throw new NotFoundException('Purchase not found');
+
+      if (await this.fileService.exists(`bill-${purchase.id}.pdf`)) {
+        console.log('return');
+        return `bill-${purchase.id}.pdf`;
+      }
+
+      if (!purchase) throw new NotFoundException('Purchase not found');
+      const totals = purchase.inventories.reduce(
+        (acc, curr) => ({
+          tax: acc.tax + (curr.tax ?? 0),
+          discount: acc.discount + (curr.discount ?? 0),
+        }),
+
+        { tax: 0, discount: 0 },
+      );
+
+      const html = await this.pdfService.renderTemplate('template', {
+        ...purchase,
+        type: 'Bill',
+        transactor: purchase.vendor,
+        totalTax: totals.tax,
+        totalDiscount: totals.discount,
+        formattedDate: dayjs(purchase.date).format('DD-MM-YYYY'),
+      });
+
+      const buffer = await this.pdfService.htmlToPdf(html);
+      const fileName = `bill-${purchase.id}.pdf`;
+
+      await this.fileService.save(fileName, buffer);
+      return fileName;
+    } catch (error) {
+      console.error('Failed to generate bill', error);
+      throw error;
+    }
+  }
+
+  getBillFile(fileName: string) {
+    if (!this.fileService.exists(fileName)) {
+      throw new NotFoundException('Bill not found');
+    }
+    return this.fileService.getFilePath(fileName);
   }
 }

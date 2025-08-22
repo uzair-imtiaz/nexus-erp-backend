@@ -6,6 +6,8 @@ import { InventoryModule } from 'src/inventory/inventory.module';
 import { VendorModule } from 'src/vendor/vendor.module';
 import { AccountManagerService } from './services/account-manager.service';
 import { EntityServiceManager } from './services/entity-service-manager.service';
+import { LocalFileService } from './services/local-file.service';
+import { PdfService } from './services/pdf.service';
 
 @Module({
   imports: [
@@ -15,7 +17,17 @@ import { EntityServiceManager } from './services/entity-service-manager.service'
     forwardRef(() => BankModule),
     AccountModule,
   ],
-  providers: [EntityServiceManager, AccountManagerService],
-  exports: [EntityServiceManager, AccountManagerService],
+  providers: [
+    EntityServiceManager,
+    AccountManagerService,
+    LocalFileService,
+    PdfService,
+  ],
+  exports: [
+    EntityServiceManager,
+    AccountManagerService,
+    LocalFileService,
+    PdfService,
+  ],
 })
 export class CommonModule {}
