@@ -92,25 +92,21 @@ export class SaleController {
   @SkipResponseMetadata()
   async viewInvoice(@Param('saleId') saleId: string, @Res() res: Response) {
     const fileName = await this.saleService.generateInvoice(saleId);
-    const filePath = this.saleService.getInvoiceFile(fileName);
+    const filePath = await this.saleService.getInvoiceFile(fileName);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     res.sendFile(path.resolve(filePath));
-
-    return res;
   }
 
   @Get(':saleId/invoice/download')
   @SkipResponseMetadata()
   async downloadInvoice(@Param('saleId') saleId: string, @Res() res: Response) {
     const fileName = await this.saleService.generateInvoice(saleId);
-    const filePath = this.saleService.getInvoiceFile(fileName);
+    const filePath = await this.saleService.getInvoiceFile(fileName);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.sendFile(path.resolve(filePath));
-
-    return res;
   }
 }

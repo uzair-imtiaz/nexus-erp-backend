@@ -618,7 +618,6 @@ export class SaleService {
         return `invoice-${sale.id}.pdf`;
       }
 
-      if (!sale) throw new NotFoundException('Sale not found');
       const totals = sale.inventories.reduce(
         (acc, curr) => ({
           tax: acc.tax + (curr.tax ?? 0),
@@ -648,8 +647,8 @@ export class SaleService {
     }
   }
 
-  getInvoiceFile(fileName: string) {
-    if (!this.fileService.exists(fileName)) {
+  async getInvoiceFile(fileName: string): Promise<string> {
+    if (!(await this.fileService.exists(fileName))) {
       throw new NotFoundException('Invoice not found');
     }
     return this.fileService.getFilePath(fileName);

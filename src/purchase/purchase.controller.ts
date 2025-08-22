@@ -66,13 +66,11 @@ export class PurchaseController {
     @Res() res: Response,
   ) {
     const fileName = await this.purchaseService.generateBill(purchaseId);
-    const filePath = this.purchaseService.getBillFile(fileName);
+    const filePath = await this.purchaseService.getBillFile(fileName);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     res.sendFile(path.resolve(filePath));
-
-    return res;
   }
 
   @Get(':purchaseId/bill/download')
@@ -82,12 +80,10 @@ export class PurchaseController {
     @Res() res: Response,
   ) {
     const fileName = await this.purchaseService.generateBill(purchaseId);
-    const filePath = this.purchaseService.getBillFile(fileName);
+    const filePath = await this.purchaseService.getBillFile(fileName);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.sendFile(path.resolve(filePath));
-
-    return res;
   }
 }

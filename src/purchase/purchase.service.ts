@@ -320,51 +320,44 @@ export class PurchaseService {
   }
 
   async generateBill(purchaseId: string): Promise<string> {
-    try {
-      const purchase = await this.purchaseRepository.findOne({
-        where: { id: purchaseId },
-        relations: ['vendor', 'inventories', 'tenant'],
-      });
+    const purchase = await this.purchaseRepository.findOne({
+      where: { id: purchaseId },
+      relations: ['vendor', 'inventories', 'tenant'],
+    });
 
-      if (!purchase) throw new NotFoundException('Purchase not found');
+    if (!purchase) throw new NotFoundException('Purchase not found');
 
-      if (await this.fileService.exists(`bill-${purchase.id}.pdf`)) {
-        console.log('return');
-        return `bill-${purchase.id}.pdf`;
-      }
-
-      if (!purchase) throw new NotFoundException('Purchase not found');
-      const totals = purchase.inventories.reduce(
-        (acc, curr) => ({
-          tax: acc.tax + (curr.tax ?? 0),
-          discount: acc.discount + (curr.discount ?? 0),
-        }),
-
-        { tax: 0, discount: 0 },
-      );
-
-      const html = await this.pdfService.renderTemplate('template', {
-        ...purchase,
-        type: 'Bill',
-        transactor: purchase.vendor,
-        totalTax: totals.tax,
-        totalDiscount: totals.discount,
-        formattedDate: dayjs(purchase.date).format('DD-MM-YYYY'),
-      });
-
-      const buffer = await this.pdfService.htmlToPdf(html);
-      const fileName = `bill-${purchase.id}.pdf`;
-
-      await this.fileService.save(fileName, buffer);
-      return fileName;
-    } catch (error) {
-      console.error('Failed to generate bill', error);
-      throw error;
+    if (await this.fileService.exists(`bill-${purchase.id}.pdf`)) {
+      return `bill-${purchase.id}.pdf`;
     }
+
+    const totals = purchase.inventories.reduce(
+      (acc, curr) => ({
+        tax: acc.tax + (curr.tax ?? 0),
+        discount: acc.discount + (curr.discount ?? 0),
+      }),
+
+      { tax: 0, discount: 0 },
+    );
+
+    const html = await this.pdfService.renderTemplate('template', {
+      ...purchase,
+      type: 'Bill',
+      transactor: purchase.vendor,
+      totalTax: totals.tax,
+      totalDiscount: totals.discount,
+      formattedDate: dayjs(purchase.date).format('DD-MM-YYYY'),
+    });
+
+    const buffer = await this.pdfService.htmlToPdf(html);
+    const fileName = `bill-${purchase.id}.pdf`;
+
+    await this.fileService.save(fileName, buffer);
+    return fileName;
   }
 
-  getBillFile(fileName: string) {
-    if (!this.fileService.exists(fileName)) {
+  async getBillFile(fileName: string) {
+    if (!(await this.fileService.exists(fileName))) {
       throw new NotFoundException('Bill not found');
     }
     return this.fileService.getFilePath(fileName);
