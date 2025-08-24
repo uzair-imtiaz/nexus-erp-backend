@@ -57,10 +57,10 @@ export class PaymentsController {
   @Get(':paymentId/view')
   @SkipResponseMetadata()
   async viewInvoice(
-    @Param('purchaseId') purchaseId: string,
+    @Param('paymentId') paymentId: string,
     @Res() res: Response,
   ) {
-    const fileName = await this.paymentsService.generatePayment(purchaseId);
+    const fileName = await this.paymentsService.generatePayment(paymentId);
     const filePath = await this.paymentsService.getPaymentFile(fileName);
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -71,10 +71,10 @@ export class PaymentsController {
   @Get(':paymentId/download')
   @SkipResponseMetadata()
   async downloadInvoice(
-    @Param('purchaseId') purchaseId: string,
+    @Param('paymentId') paymentId: string,
     @Res() res: Response,
   ) {
-    const fileName = await this.paymentsService.generatePayment(purchaseId);
+    const fileName = await this.paymentsService.generatePayment(paymentId);
     const filePath = await this.paymentsService.getPaymentFile(fileName);
 
     res.setHeader('Content-Type', 'application/pdf');
