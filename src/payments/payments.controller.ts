@@ -6,6 +6,7 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseInterceptors,
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
@@ -14,6 +15,9 @@ import { CreatePaymentdto } from './dto/create-payment.dto';
 import { TransactionRequest } from 'src/common/interfaces/request.interfaces';
 import { TransactionInterceptor } from 'src/common/interceptors/transaction.interceptor';
 import { PaymentFilterDto } from './dto/payment-filter.dto';
+import { SkipResponseMetadata } from 'src/common/decorators/skip-response-interceptor.decorator';
+import { Response } from 'express';
+import * as path from 'path';
 
 @Controller('payments')
 export class PaymentsController {
@@ -48,5 +52,33 @@ export class PaymentsController {
   })
   findOne(@Param('id') id: string) {
     return this.paymentsService.getOne(id);
+  }
+
+  @Get(':paymentId/view')
+  @SkipResponseMetadata()
+  async viewInvoice(
+    @Param('paymentId') paymentId: string,
+    @Res() res: Response,
+  ) {
+    const fileName = await this.paymentsService.generatePayment(paymentId);
+    const filePath = await this.paymentsService.getPaymentFile(fileName);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.sendFile(path.resolve(filePath));
+  }
+
+  @Get(':paymentId/download')
+  @SkipResponseMetadata()
+  async downloadInvoice(
+    @Param('paymentId') paymentId: string,
+    @Res() res: Response,
+  ) {
+    const fileName = await this.paymentsService.generatePayment(paymentId);
+    const filePath = await this.paymentsService.getPaymentFile(fileName);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.sendFile(path.resolve(filePath));
   }
 }

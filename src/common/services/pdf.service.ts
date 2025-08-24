@@ -62,7 +62,7 @@ export class PdfService implements OnModuleDestroy {
       await page.evaluateHandle('document.fonts.ready');
 
       const buffer = await page.pdf({
-        format: 'A4',
+        width: 800,
         printBackground: true,
       });
       return buffer;
