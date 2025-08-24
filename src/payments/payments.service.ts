@@ -13,6 +13,9 @@ import { TenantContextService } from 'src/tenant/tenant-context.service';
 import { QueryRunner, Repository } from 'typeorm';
 import { CreatePaymentdto } from './dto/create-payment.dto';
 import { Payment } from './entity/payment.entity';
+import { LocalFileService } from 'src/common/services/local-file.service';
+import { PdfService } from 'src/common/services/pdf.service';
+import * as dayjs from 'dayjs';
 
 @Injectable()
 export class PaymentsService {
@@ -24,6 +27,8 @@ export class PaymentsService {
     private readonly accountManagerService: AccountManagerService,
     private readonly accountService: AccountService,
     private readonly entityServiceManager: EntityServiceManager,
+    private readonly fileService: LocalFileService,
+    private readonly pdfService: PdfService,
   ) {}
 
   async create(createPaymentDto: CreatePaymentdto, queryRunner: QueryRunner) {
@@ -164,5 +169,41 @@ export class PaymentsService {
       throw new NotFoundException('Payment not found');
     }
     return payment;
+  }
+
+  async generatePayment(paymentId: string): Promise<string> {
+    const purchase = await this.paymentRepository.findOne({
+      where: { id: paymentId },
+      relations: ['vendor', 'bank', 'tenant'],
+    });
+
+    if (!purchase) throw new NotFoundException('Purchase not found');
+
+    if (await this.fileService.exists(`bill-${purchase.id}.pdf`)) {
+      return `bill-${purchase.id}.pdf`;
+    }
+
+    const html = await this.pdfService.renderTemplate('template', {
+      ...purchase,
+      type: 'Payment',
+      totalAmount: purchase.amount,
+      totalTax: null,
+      totalDiscount: null,
+      transactor: purchase.vendor,
+      formattedDate: dayjs(purchase.date).format('DD-MM-YYYY'),
+    });
+
+    const buffer = await this.pdfService.htmlToPdf(html);
+    const fileName = `bill-${purchase.id}.pdf`;
+
+    await this.fileService.save(fileName, buffer);
+    return fileName;
+  }
+
+  async getPaymentFile(fileName: string) {
+    if (!(await this.fileService.exists(fileName))) {
+      throw new NotFoundException('Bill not found');
+    }
+    return this.fileService.getFilePath(fileName);
   }
 }

@@ -1,357 +1,324 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Invoice</title>
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-            
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }
-            
-            body {
-                font-family: 'Inter', sans-serif;
-                background: none;
-                padding: 0px;
-                margin: 0px;
-                min-height: 100vh;
-            }
-            
-            .invoice-container {
-                /* max-width: 750px; */
-                margin: 0 auto;
-                padding: 0;
-                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-                overflow: hidden;
-                position: relative;
-            }
-            
-            .invoice-container::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                height: 4px;
-                background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcf7f, #4d79ff);
-            }
-            
-            .header {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                padding: 30px 40px 25px;
-                position: relative;
-            }
-            
-            .header-content {
-                display: flex;
-                justify-content: space-between;
-                align-items: flex-start;
-            }
-            
-            .logo-section h1 {
-                font-size: 26px;
-                font-weight: 700;
-                margin-bottom: 4px;
-                letter-spacing: -0.5px;
-            }
-            
-            .logo-section p {
-                font-size: 13px;
-                opacity: 0.9;
-                line-height: 1.4;
-            }
-            
-            .invoice-badge {
-                background: rgba(255, 255, 255, 0.2);
-                backdrop-filter: blur(10px);
-                padding: 8px 20px;
-                border-radius: 50px;
-                font-size: 14px;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }
-            
-            .content {
-                padding: 30px 40px 35px;
-            }
-            
-            .invoice-meta {
-                display: grid;
-                grid-template-columns: 1fr auto;
-                gap: 30px;
-                margin-bottom: 30px;
-            }
-            
-            .bill-to h3 {
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-                color: #666;
-                letter-spacing: 0.5px;
-                margin-bottom: 8px;
-            }
-            
-            .bill-to .client-info {
-                color: #333;
-                line-height: 1.5;
-                font-size: 14px;
-            }
-            
-            .invoice-details {
-                text-align: right;
-                font-size: 14px;
-                color: #666;
-                line-height: 1.6;
-            }
-            
-            .invoice-details strong {
-                color: #333;
-            }
-            
-            .items-section {
-                margin-bottom: 25px;
-            }
-            
-            .items-table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 14px;
-            }
-            
-            .items-table thead {
-                background: #f8fafc;
-            }
-            
-            .items-table th {
-                padding: 12px 8px;
-                text-align: left;
-                font-weight: 600;
-                color: #475569;
-                font-size: 12px;
-                text-transform: uppercase;
-                letter-spacing: 0.3px;
-                border-bottom: 2px solid #e2e8f0;
-            }
-            
-            .items-table td {
-                padding: 16px 8px;
-                border-bottom: 1px solid #f1f5f9;
-                vertical-align: top;
-            }
-            
-            .items-table tbody tr:hover {
-                background: #f8fafc;
-            }
-            
-            .item-name {
-                font-weight: 600;
-                color: #1e293b;
-                margin-bottom: 4px;
-            }
-            
-            .item-description {
-                font-size: 12px;
-                color: #64748b;
-                line-height: 1.4;
-            }
-            
-            .text-center { text-align: center; }
-            .text-right { text-align: right; }
-            
-            .price-col, .total-col {
-                font-weight: 600;
-                color: #1e293b;
-            }
-            
-            .summary {
-                margin-top: 20px;
-                display: flex;
-                justify-content: flex-end;
-            }
-            
-            .summary-table {
-                width: 280px;
-            }
-            
-            .summary-row {
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= type %></title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.4;
+        color: #333;
+        background-color: #f8f9fa;
+        padding: 20px;
+        font-size: 13px;
+      }
+
+      .receipt-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Restructured header to match reference with logo left, company info right */
+      .receipt-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 40px;
+        padding-bottom: 20px;
+      }
+
+      .logo-section {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .logo-placeholder {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #4caf50, #2196f3);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+        font-size: 14px;
+      }
+
+      .company-info {
+        text-align: right;
+        max-width: 400px;
+      }
+
+      .company-name {
+        font-size: 28px;
+        font-weight: 700;
+        color: #333;
+        margin-bottom: 8px;
+      }
+
+      .company-address {
+        font-size: 12px;
+        color: #666;
+        line-height: 1.4;
+      }
+
+      /* Simplified document title section */
+      .document-title {
+        margin-bottom: 30px;
+      }
+
+      .document-title h2 {
+        font-size: 24px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 5px;
+      }
+
+      /* Simplified customer and receipt info layout */
+      .info-section {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+      }
+
+      .customer-info {
+        flex: 1;
+      }
+
+      .customer-info h3 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+      }
+
+      .customer-info p {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 2px;
+      }
+
+      .receipt-details {
+        text-align: right;
+        min-width: 200px;
+      }
+
+      .receipt-details p {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 4px;
+      }
+
+      .receipt-details strong {
+        color: #333;
+      }
+
+      /* Simplified table styling to match reference */
+      .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 30px;
+        border: 1px solid #ddd;
+      }
+
+      .items-table th,
+      .items-table td {
+        padding: 12px;
+        text-align: left;
+        border: 1px solid #ddd;
+        font-size: 12px;
+      }
+
+      .items-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .items-table td:last-child,
+      .items-table th:last-child {
+        text-align: right;
+      }
+
+      .items-table tbody tr:nth-child(even) {
+        background-color: #fafafa;
+      }
+
+      /* Simplified footer */
+      .receipt-footer {
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid #ddd;
+        text-align: center;
+        font-size: 11px;
+        color: #666;
+      }
+
+      @media (max-width: 768px) {
+        .receipt-header {
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .company-info {
+          text-align: left;
+          max-width: none;
+        }
+
+        .info-section {
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .receipt-details {
+          text-align: left;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="receipt-container">
+      <!-- Restructured header layout to match reference design -->
+      <div class="receipt-header">
+        <div class="logo-section">
+          <div class="logo-placeholder"><%= 'LOGO' %></div>
+        </div>
+
+        <div class="company-info">
+          <h1 class="company-name"><%= tenant.name %></h1>
+          <div class="company-address">
+            <p><%= tenant.address %></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Simplified document title -->
+      <div class="document-title">
+        <h2><%= type %></h2>
+      </div>
+
+      <!-- Simplified info section layout -->
+      <div class="info-section">
+        <div class="customer-info">
+          <h3><%= transactor.name %></h3>
+          <p><%= transactor.address %></p>
+        </div>
+
+        <div class="receipt-details">
+          <p><strong>ID</strong> <%= id %></p>
+          <p><strong>Date</strong> <%= formattedDate %></p>
+        </div>
+      </div>
+
+      <!-- Restored original table structure with quantity, price, name columns -->
+      <% if (type === "invoice" || type === "bill") { %>
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Quantity</th>
+              <th>Rate</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% inventories.forEach(function(item) { %>
+              <tr>
+                <td><%= item.name %></td>
+                <td><%= item.quantity %></td>
+                <td><%= item.rate %></td>
+                <td><%= (item.quantity * item.rate).toFixed(2) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+
+      <% } %>
+
+      <!-- Added subtotal and total section below table -->
+      <div class="totals-section" style="margin-bottom: 30px">
+        <div
+          style="display: flex; justify-content: flex-end; margin-bottom: 20px"
+        >
+          <div style="min-width: 200px">
+            <div
+              style="
                 display: flex;
                 justify-content: space-between;
                 padding: 8px 0;
-                font-size: 14px;
-                color: #64748b;
-            }
-            
-            .summary-row span:last-child {
-                font-weight: 500;
-                color: #1e293b;
-            }
-            
-            .summary-total {
-                border-top: 2px solid #e2e8f0;
-                margin-top: 8px;
-                padding-top: 12px;
-                font-weight: 700;
-                font-size: 16px;
-                color: #1e293b;
-            }
-            
-            .footer {
-                background: #f8fafc;
-                padding: 25px 40px;
-                display: flex;
-                justify-content: space-between;
-                gap: 40px;
-                align-items: end;
-                margin-top: 20px;
-            }
-            
-            .payment-info h4 {
-                font-size: 14px;
-                font-weight: 600;
-                color: #1e293b;
-                margin-bottom: 8px;
-            }
-            
-            .payment-info p {
-                font-size: 13px;
-                color: #64748b;
-                line-height: 1.5;
-                margin-bottom: 15px;
-            }
-            
-            .signature-section {
-                text-align: right;
-            }
-            
-            .signature-name {
-                font-family: 'Dancing Script', cursive;
-                font-size: 28px;
-                color: #667eea;
-                margin-bottom: 4px;
-            }
-            
-            .signature-details {
-                font-size: 13px;
-                color: #64748b;
-                line-height: 1.3;
-            }
-            
-            .signature-details strong {
-                color: #1e293b;
-            }
-            
-            @media (max-width: 768px) {
-                /* body { padding: 10px; } */
-                /* .header, .footer { padding: 20px; } */
-                .invoice-meta { grid-template-columns: 1fr; gap: 20px; }
-                .footer { grid-template-columns: 1fr; gap: 20px; }
-                .signature-section { text-align: left; margin-top: 15px; }
-            }
-        </style>
-        <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
-    </head>
-    <body>
-        <div class="invoice-container">
-            <div class="header">
-                <div class="header-content">
-                    <div class="logo-section">
-                        <h1><%= tenant.name %></h1>
-                        <p>123 Anywhere St., Any City<br>+123-456-7890</p>
-                    </div>
-                    <div class="invoice-badge"><%= type %></div>
-                </div>
+                border-bottom: 1px solid #eee;
+              "
+            >
+              <span style="font-weight: 500">Subtotal:</span>
+              <span>PKR <%= Number(totalAmount) %></span>
             </div>
-            
-            <div class="content">
-                <div class="invoice-meta">
-                    <div class="bill-to">
-                        <h3>Bill To</h3>
-                        <div class="client-info">
-                            <strong><%= transactor.name %></strong><br>
-                            <%= transactor.address %><br>
-                            <%= transactor.phone %>
-                        </div>
-                    </div>
-                    <div class="invoice-details">
-                        <strong><%= type %> #<%= id %></strong><br>
-                        Date: <%= formattedDate %><br><br>
-                    </div>
+            <% if (totalTax) { %>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 8px 0;
+                    border-bottom: 1px solid #eee;
+                  "
+                >
+                  <span style="font-weight: 500">Tax:</span>
+                  <span>PKR <%= Number(totalTax) %></span>
                 </div>
-
-                <div class="items-section">
-                    <table class="items-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 50%;">Description</th>
-                                <th class="text-center" style="width: 17%;">Price</th>
-                                <th class="text-center" style="width: 10%;">Qty</th>
-                                <th class="text-right" style="width: 23%;">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% inventories.forEach(item => { %>
-                            <tr>
-                                <td>
-                                <div class="item-name"><%= item.name %></div>
-                                <div class="item-description"><%= item.description %></div>
-                                </td>
-                                <td class="text-center price-col">PKR <%= item.rate %></td>
-                                <td class="text-center"><%= item.quantity %></td>
-                                <td class="text-right total-col">PKR <%= Number(item.quantity) * Number(item.rate) + Number(item.tax) - Number(item.discount) %></td>
-                            </tr>
-                            <% }) %>
-                        </tbody>
-                        
-                    </table>
+              <% } %>
+              
+              <% if (totalDiscount) { %>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 8px 0;
+                    border-bottom: 1px solid #eee;
+                  "
+                >
+                  <span style="font-weight: 500">Discount:</span>
+                  <span>PKR <%= Number(totalDiscount) %></span>
                 </div>
-
-                <div class="summary">
-                    <div class="summary-table">
-                        <div class="summary-row">
-                            <span>Subtotal</span>
-                            <span>PKR  <%= Number(totalAmount) %></span>
-                        </div>
-                        <div class="summary-row">
-                            <span>Tax</span>
-                            <span>PKR <%= Number(totalTax) %></span>
-                        </div>
-                        <div class="summary-row">
-                            <span>Discount</span>
-                            <span>PKR <%= Number(totalDiscount) %></span>
-                        </div>
-                        <div class="summary-row summary-total">
-                            <span>Total</span>
-                            <span>PKR <%= Number(totalAmount) + Number(totalTax) - Number(totalDiscount) %></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="footer">
-                <div class="payment-info">
-                    <h4>Payment Method</h4>
-                    <p>
-                        <strong>Central Bank</strong><br>
-                        Account: Samira Hadid<br>
-                        +123-456-7890
-                    </p>
-                    <h4>Terms & Conditions</h4>
-                    <p>Payment due within 3 days. Late fees may apply.</p>
-                </div>
-                <div class="signature-section">
-                    <div class="signature-name">Samira Hadid</div>
-                    <div class="signature-details">
-                        <strong>Samira Hadid</strong><br>
-                        Manager
-                    </div>
-                </div>
-            </div>
+              <% } %>
+              
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  padding: 12px 0;
+                  font-weight: 600;
+                  font-size: 16px;
+                  border-top: 2px solid #333;
+                "
+              >
+                <span>Total:</span>
+                <span>
+                  PKR <%= Number(totalAmount) + (totalTax ? Number(totalTax) : 0) - (totalDiscount ? Number(totalDiscount) : 0) %>
+                </span>
+              </div>              
+          </div>
         </div>
-    </body>
+      </div>
+
+      <!-- Simplified footer to match reference -->
+      <div class="receipt-footer">
+        <p>
+          This is a system generated receipt and does not require any
+          signatures.
+        </p>
+      </div>
+    </div>
+  </body>
 </html>
